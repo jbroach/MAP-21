@@ -61,6 +61,8 @@ def AADT_splits(df_spl):
 
 def main():
     pd.set_option('display.max_rows', None)
+    """
+    ############ UNCOMMENT FOR FULL DATASET###################################
     drive_path = 'H:/map21/perfMeasures/phed/data/original_data/'
     quarters = ['2017Q1', '2017Q2', '2017Q3', '2017Q4'] 
     folder_end = '_TriCounty_Metro_15-min'
@@ -74,22 +76,24 @@ def main():
         full_path = path + '/' + filename
         df_temp = pd.read_csv(os.path.join(os.path.dirname(__file__), drive_path + full_path)) #fix in script implementation
         df = pd.concat([df, df_temp])
-    
+    ############################################################################
+    """
+
+    df = pd.read_csv(os.path.join(os.path.dirname('__file__'), 'Feb2017_test/Feb2017_test.csv')) #fix in script implementation
     # Filter by timestamps
     df['measurement_tstamp'] = pd.to_datetime(df['measurement_tstamp'])
     df = df[df['measurement_tstamp'].dt.weekday.isin([0, 1, 2, 3, 4])] # Capture weekdays only
     df = df[df['measurement_tstamp'].dt.hour.isin([6, 7, 8, 9, 16, 17, 18, 19])]
-    # Join relevant files
-    df_meta = pd.read_csv(os.path.join(os.path.dirname(__file__), 'Feb2017_test/TMC_Identification.csv'), 
-                          usecols=['tmc', 'miles', 'tmclinear', 'aadt', 'aadt_singl', 'aadt_combi' ])
-    df_odot = pd.read_csv(os.path.join(os.path.dirname(__file__), 'Feb2017_test/odot_edt.csv'))    
-    df = pd.merge(df, df_meta, left_on=df['tmc_code'], right_on=['tmc'], how='inner')
-    df = pd.merge(df, df_odot, left_on=df['tmc_code'], right_on=['TMC'], how='inner')
+        
+    """
     # Join HERE data
-    df_here = pd.read_csv(os.path.join(os.path.dirname(__file__), 
-        'H:/map21/perfMeasures/phed/data/HERE_OR_Static_TriCounty_edit.csv'))
-    #df_here = df_here[['TMC_HERE', 'SPEED_LIMIT']]
-    df = pd.merge(df, df_here, left_on=df['tmc_code'], right_on=['TMC_HERE'], how='inner')
+    df_here = pd.read_csv(os.path.join(os.path.dirname('__file__'), 
+        'H:/map21/perfMeasures/phed/data/HERE_OR_Static_TriCounty_edit.csv'),
+        usecols=['TMC_HERE', 'SPEED_LIMIT'])
+    df = pd.merge(df, df_here, left_on=df['tmc_code'], right_on=df_here['TMC_HERE'], how='inner')
+    """
+
+
     print(df)
     """
     # Apply calculation functions

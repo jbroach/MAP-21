@@ -78,23 +78,35 @@ def main():
         df = pd.concat([df, df_temp])
     ############################################################################
     """
-
     df = pd.read_csv(os.path.join(os.path.dirname('__file__'), 'Feb2017_test/Feb2017_test.csv')) #fix in script implementation
+
     # Filter by timestamps
     df['measurement_tstamp'] = pd.to_datetime(df['measurement_tstamp'])
     df = df[df['measurement_tstamp'].dt.weekday.isin([0, 1, 2, 3, 4])] # Capture weekdays only
     df = df[df['measurement_tstamp'].dt.hour.isin([6, 7, 8, 9, 16, 17, 18, 19])]
-        
-    """
+    df['hour'] = df['measurement_tstamp'].dt.hour 
+
+    # Join peakingFactor data
+    df_peak = pd.read_csv(os.path.join(os.path.dirname('__file__'), 
+        'H:/map21/perfMeasures/phed/data/peakingFactors_edit.csv'),
+        usecols=['startTime', '2015_15-min_Combined'])
+    df_peak['pk_hour'] = pd.to_datetime(df_peak['startTime']).dt.hour
+    df = pd.merge(df, df_peak, left_on=df['hour'], right_on=df_peak['pk_hour'], how='inner')
+
+    # Join relevant files
+    df_meta = pd.read_csv(os.path.join(os.path.dirname('__file__'), 'Feb2017_test/TMC_Identification.csv'), 
+                          usecols=['tmc', 'miles', 'tmclinear', 'aadt', 'aadt_singl', 'aadt_combi' ])
+    df_odot = pd.read_csv(os.path.join(os.path.dirname('__file__'), 'Feb2017_test/odot_edt.csv'))    
+    df = pd.merge(df, df_meta, left_on=df['tmc_code'], right_on=df_meta['tmc'], how='inner')
+    df = pd.merge(df, df_odot, left_on=df['tmc_code'], right_on=df_odot['TMC'], how='inner')
+    
     # Join HERE data
     df_here = pd.read_csv(os.path.join(os.path.dirname('__file__'), 
         'H:/map21/perfMeasures/phed/data/HERE_OR_Static_TriCounty_edit.csv'),
         usecols=['TMC_HERE', 'SPEED_LIMIT'])
-    df = pd.merge(df, df_here, left_on=df['tmc_code'], right_on=df_here['TMC_HERE'], how='inner')
-    """
-
-
-    print(df)
+    df = pd.merge(df, df_here, left_on=df['tmc_code'], right_on=df_here['TMC_HERE'], how='left', validate='m:1')
+    
+    #print(df)
     """
     # Apply calculation functions
     df = AADT_splits(df)
@@ -110,7 +122,8 @@ def main():
     #df = df[['aadt','DirAADT_AUTO','RSD','PK_HR','ED', 'tmc_code', 'TED']]
     df = df[['tmc_code','TED']]
     print(df)
-    #print(df.loc[df['tmc_code'] == '114-04369'])
     """
+    df = df[['tmc_code', 'hour', 'pk_hour', '2015_15-min_Combined', 'SPEED_LIMIT']]
+    print(df.loc[df['tmc_code'] == '114-04369'])
 if __name__ == '__main__':
     main()

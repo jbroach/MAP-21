@@ -54,9 +54,9 @@ def segment_delay(df_sd):
 def AADT_splits(df_spl):
     # Apply mode splits using ODOT methodology
     df_spl['TOTAL_AADT'] = df_spl['DirAADT_AUTO'] + df_spl['DirAADT_BUS'] + df_spl['DirAADT_TRK']
-    df_spl['pct_auto'] = df_spl['DirAADT_AUTO']/df_spl['TOTAL_AADT'] 
-    df_spl['pct_bus'] = df_spl['DirAADT_BUS']/df_spl['TOTAL_AADT'] 
-    df_spl['pct_truck'] = df_spl['DirAADT_TRK']/df_spl['TOTAL_AADT'] 
+    df_spl['pct_auto'] = df_spl['DirAADT_AUTO']/df_spl['TOTAL_AADT']
+    df_spl['pct_bus'] = df_spl['DirAADT_BUS']/df_spl['TOTAL_AADT']
+    df_spl['pct_truck'] = df_spl['DirAADT_TRK']/df_spl['TOTAL_AADT']
     return df_spl
 
 def main():
@@ -87,24 +87,24 @@ def main():
     df['hour'] = df['measurement_tstamp'].dt.hour 
 
     # Join peakingFactor data
-    df_peak = pd.read_csv(os.path.join(os.path.dirname('__file__'), 
+    df_peak = pd.read_csv(os.path.join(os.path.dirname(__file__), 
         'H:/map21/perfMeasures/phed/data/peakingFactors_edit.csv'),
         usecols=['startTime', '2015_15-min_Combined'])
     df_peak['pk_hour'] = pd.to_datetime(df_peak['startTime']).dt.hour
     df = pd.merge(df, df_peak, left_on=df['hour'], right_on=df_peak['pk_hour'], how='inner')
 
     # Join relevant files
-    df_meta = pd.read_csv(os.path.join(os.path.dirname('__file__'), 'Feb2017_test/TMC_Identification.csv'), 
+    df_meta = pd.read_csv(os.path.join(os.path.dirname(__file__), 'Feb2017_test/TMC_Identification.csv'),
                           usecols=['tmc', 'miles', 'tmclinear', 'aadt', 'aadt_singl', 'aadt_combi' ])
-    df_odot = pd.read_csv(os.path.join(os.path.dirname('__file__'), 'Feb2017_test/odot_edt.csv'))    
+    df_odot = pd.read_csv(os.path.join(os.path.dirname(__file__), 'Feb2017_test/odot_edt.csv'))
     df = pd.merge(df, df_meta, left_on=df['tmc_code'], right_on=df_meta['tmc'], how='inner')
     df = pd.merge(df, df_odot, left_on=df['tmc_code'], right_on=df_odot['TMC'], how='inner')
     
     # Join HERE data
-    df_here = pd.read_csv(os.path.join(os.path.dirname('__file__'), 
+    df_here = pd.read_csv(os.path.join(os.path.dirname(__file__), 
         'H:/map21/perfMeasures/phed/data/HERE_OR_Static_TriCounty_edit.csv'),
         usecols=['TMC_HERE', 'SPEED_LIMIT'])
-    df = pd.merge(df, df_here, left_on=df['tmc_code'], right_on=df_here['TMC_HERE'], how='left', validate='m:1')
+    df = pd.merge(df, df_here, left_on=df['tmc_code'], right_on=df_here['TMC_HERE'], how='inner', validate='m:1') #This may need to be a left join.
     
     #print(df)
     """
@@ -123,7 +123,8 @@ def main():
     df = df[['tmc_code','TED']]
     print(df)
     """
-    df = df[['tmc_code', 'hour', 'pk_hour', '2015_15-min_Combined', 'SPEED_LIMIT']]
-    print(df.loc[df['tmc_code'] == '114-04369'])
+    df = df[['tmc_code', 'TMC_HERE', 'hour', 'pk_hour', '2015_15-min_Combined', 'SPEED_LIMIT']]
+    print(df)
+    #print(df.loc[df['tmc_code'] == '114-04369'])
 if __name__ == '__main__':
     main()

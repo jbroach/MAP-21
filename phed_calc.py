@@ -106,7 +106,7 @@ def main():
     # Filter by timestamps
     df['measurement_tstamp'] = pd.to_datetime(df['measurement_tstamp'])
     df = df[df['measurement_tstamp'].dt.weekday.isin([0, 1, 2, 3, 4])] # Capture weekdays only
-    df = df[df['measurement_tstamp'].dt.hour.isin([6, 7, 8, 9, 10, 16, 17, 18, 19])] # add 10, 15 to accurately capture data.
+    df = df[df['measurement_tstamp'].dt.hour.isin([6, 7, 8, 9, 10, 15, 16, 17, 18, 19])] # add 10, 15 to accurately capture data.
     df['hour'] = df['measurement_tstamp'].dt.hour 
 
     # Join peakingFactor data

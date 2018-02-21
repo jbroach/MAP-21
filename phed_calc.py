@@ -46,7 +46,7 @@ def RSD(df_rsd):
     # returns travel time segment delay calculations.
     df_rsd['RSD'] = df_rsd['travel_time_seconds'] - df_rsd['SD']
     df_rsd['RSD'] = np.where(df_rsd['RSD'] >= 0, df_rsd['RSD'], 0)
-    df_rsd['RSD'] = np.where(df_rsd['RSD'] > 900, 900, df_rsd['RSD']) # Where does this show up?
+    #df_rsd['RSD'] = np.where(df_rsd['RSD'] > 900, 900, df_rsd['RSD']) # Where does this show up?
     return df_rsd
         
 def segment_delay(df_sd):
@@ -56,9 +56,9 @@ def segment_delay(df_sd):
 
 def AADT_splits(df_spl):
     df_spl['aadt_auto'] = df_spl['aadt'] - (df_spl['aadt_singl'] + df_spl['aadt_combi'])
-    df_spl['pct_auto'] = df_spl['aadt_auto']/df_spl['aadt']
-    df_spl['pct_bus'] = df_spl['aadt_singl']/df_spl['aadt']
-    df_spl['pct_truck'] = df_spl['aadt_combi']/df_spl['aadt']
+    df_spl['pct_auto'] = df_spl['aadt_auto'] / df_spl['aadt']
+    df_spl['pct_bus'] = df_spl['aadt_singl'] / df_spl['aadt']
+    df_spl['pct_truck'] = df_spl['aadt_combi'] / df_spl['aadt']
     return df_spl
 
 def threshold_speed(df_ts):
@@ -105,11 +105,10 @@ def main():
     df = df[df['measurement_tstamp'].dt.hour.isin([6, 7, 8, 9, 16, 17, 18, 19])] # add 10, 15 to accurately capture data.
        
     # Join relevant files
-    df_meta = pd.read_csv(os.path.join(os.path.dirname(__file__), 'Feb2017_test/TMC_Identification.csv'),
+    df_meta = pd.read_csv(os.path.join(os.path.dirname(__file__), 
+                         'H:/map21/perfMeasures/phed/data/TMC_Identification_NPMRDS (Trucks and passenger vehicles).csv'),
                           usecols=['tmc', 'miles', 'tmclinear', 'aadt', 'aadt_singl', 'aadt_combi' ])
-    df_odot = pd.read_csv(os.path.join(os.path.dirname(__file__), 'Feb2017_test/odot_edt.csv'))
     df = pd.merge(df, df_meta, left_on=df['tmc_code'], right_on=df_meta['tmc'], how='inner')
-    df = pd.merge(df, df_odot, left_on=df['tmc_code'], right_on=df_odot['TMC'], how='inner')
     
     # Join HERE data
     df_here = pd.read_csv(os.path.join(os.path.dirname(__file__), 
@@ -130,8 +129,6 @@ def main():
     df = df[['tmc_code', 'TED']]
     df.to_csv('phed_out.csv')
     print(df['TED'].sum())
-    #print(df)    
-
 
 if __name__ == '__main__':
     main()

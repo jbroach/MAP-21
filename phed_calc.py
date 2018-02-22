@@ -1,5 +1,5 @@
 # Script by Kevin Saavedra, Metro, kevin.saavedra@oregonmetro.gov
-# Adapted from Excel tables by Rich Arnold, P.E., ODOT
+# Adapted from Excel tables created by Rich Arnold, P.E., ODOT
 
 import os
 import pandas as pd
@@ -8,7 +8,7 @@ import datetime as dt
 
 def per_capita_TED(sum_11_mo):
     year_adjusted_TED = (sum_11_mo / 11) + sum_11_mo
-    pop_PDX = 2389228
+    pop_PDX = 639863
     return year_adjusted_TED / pop_PDX
 
 def TED_summation(df_teds):
@@ -37,7 +37,7 @@ def peak_hr(df_pk):
     # Uses Metro peaking calibrations.
     df_pk['PK_HR'] = (df_pk['aadt'] * df_pk['2015_15-min_Combined']).round()
     return df_pk
-    
+
 def excessive_delay(df_ed):
     df_ed['ED'] = df_ed['RSD'] / 3600 # check this value hundredths of an hour
     df_ed['ED'] = df_ed['ED'].round(3)
@@ -50,7 +50,7 @@ def RSD(df_rsd):
     df_rsd['RSD'] = np.where(df_rsd['RSD'] >= 0, df_rsd['RSD'], 0)
     #df_rsd['RSD'] = np.where(df_rsd['RSD'] > 900, 900, df_rsd['RSD']) # Where does this show up?
     return df_rsd
-        
+
 def segment_delay(df_sd):
     # AKA EDTTTs value (Excessive Delay Threshold Travel Time)
     df_sd['SD'] = (df_sd['miles'] / df_sd['TS']) * 3600
@@ -111,6 +111,10 @@ def main():
     df = df[df['measurement_tstamp'].dt.weekday.isin([0, 1, 2, 3, 4])] # Capture weekdays only
     df = df[df['measurement_tstamp'].dt.hour.isin([6, 7, 8, 9, 10, 15, 16, 17, 18, 19])] # add 10, 15 to accurately capture data.
        
+    # Join/filter on relevant urban TMCs
+    df_urban = pd.read_csv(os.path.join(os.path.dirname(__file__), 'H:/map21/perfMeasures/phed/data/urban_tmc.csv'))                   
+    df = pd.merge(df, df_urban, left_on=df['tmc_code'], right_on=df_meta['Tmc'], how='inner')
+
     # Join TMC Metadata
     df_meta = pd.read_csv(os.path.join(os.path.dirname(__file__), 
                          'H:/map21/perfMeasures/phed/data/TMC_Identification_NPMRDS (Trucks and passenger vehicles).csv'),

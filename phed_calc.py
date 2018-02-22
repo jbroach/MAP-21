@@ -6,6 +6,11 @@ import pandas as pd
 import numpy as np
 import datetime as dt
 
+def per_capita_TED(sum_11_mo):
+    year_adjusted_TED = (sum_11_mo / 11) + sum_11_mo
+    pop_PDX = 2389228
+    return year_adjusted_TED / pop_PDX
+
 def TED_summation(df_teds):
     ########## Vehicle occupancy numbers
     VOCa = 1.4 
@@ -19,11 +24,8 @@ def TED_summation(df_teds):
     return df_teds
 
 def total_excessive_delay(df_ted):
-    df_ted['TED_seg'] = (df_ted['ED'] * df_ted['PK_HR']).round(2)
-    df_ted['TED_seg'] = df_ted['TED_seg'].round() # Need this line to fix excel rounding weirdness
-    #df_ted = df_ted[['tmc_code', 'RSD', 'PK_HR', 'ED', 'PK_HR', 'TED_seg']]
-    #Groupby for summation by TMC
-    
+    df_ted['TED_seg'] = (df_ted['ED'] * df_ted['PK_HR']).round()
+    #Groupby for summation by TMC   
     ted_operations = ({'TED_seg' : 'sum',
                       'pct_auto' : 'max',
                       'pct_bus'  : 'max',
@@ -68,6 +70,11 @@ def threshold_speed(df_ts):
     return df_ts
 
 def main():
+    """
+    Main script to calculate Total Excessive Delay per FHWA guidelines. 
+    Joins Metro peaking factor csv for calibrated hourly aadt volumes and
+    HERE data, provided by ODOT for relevant speed limits on TMCs.
+    """
     pd.set_option('display.max_rows', None)
     
     ############ UNCOMMENT FOR FULL DATASET###################################
@@ -102,9 +109,9 @@ def main():
     df = pd.merge(df, df_peak, left_on=df['hour'], right_on=df_peak['pk_hour'], how='left')
 
     df = df[df['measurement_tstamp'].dt.weekday.isin([0, 1, 2, 3, 4])] # Capture weekdays only
-    df = df[df['measurement_tstamp'].dt.hour.isin([6, 7, 8, 9, 16, 17, 18, 19])] # add 10, 15 to accurately capture data.
+    df = df[df['measurement_tstamp'].dt.hour.isin([6, 7, 8, 9, 10, 15, 16, 17, 18, 19])] # add 10, 15 to accurately capture data.
        
-    # Join relevant files
+    # Join TMC Metadata
     df_meta = pd.read_csv(os.path.join(os.path.dirname(__file__), 
                          'H:/map21/perfMeasures/phed/data/TMC_Identification_NPMRDS (Trucks and passenger vehicles).csv'),
                           usecols=['tmc', 'miles', 'tmclinear', 'aadt', 'aadt_singl', 'aadt_combi' ])
@@ -124,11 +131,12 @@ def main():
     df = excessive_delay(df)
     df = peak_hr(df)
     df = total_excessive_delay(df)
-    df = TED_summation(df)
-    
+    df = TED_summation(df)   
     df = df[['tmc_code', 'TED']]
     df.to_csv('phed_out.csv')
-    print(df['TED'].sum())
+   
+    result = per_capita_TED(df['TED'].sum())
+    print(result)
 
 if __name__ == '__main__':
     main()

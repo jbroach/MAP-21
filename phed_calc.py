@@ -91,10 +91,10 @@ def main():
         full_path = path + '/' + filename
         df_temp = pd.read_csv(os.path.join(os.path.dirname(__file__), drive_path + full_path)) #fix in script implementation
         df = pd.concat([df, df_temp])
-    ############################################################################
+    ###########################################################################
     
     #### UNCOMMENT TO USE ONE-MONTH TEST DATSET ###############################
-    #df = pd.read_csv(os.path.join(os.path.dirname(__file__), 'Feb2017_test/Feb2017_test.csv')) #fix in script implementation
+    # df = pd.read_csv(os.path.join(os.path.dirname(__file__), 'Feb2017_test/Feb2017_test.csv')) #fix in script implementation
     ###########################################################################
     
     # Filter by timestamps
@@ -109,12 +109,12 @@ def main():
     df = pd.merge(df, df_peak, left_on=df['hour'], right_on=df_peak['pk_hour'], how='left')
 
     df = df[df['measurement_tstamp'].dt.weekday.isin([0, 1, 2, 3, 4])] # Capture weekdays only
-    df = df[df['measurement_tstamp'].dt.hour.isin([6, 7, 8, 9, 10, 15, 16, 17, 18, 19])] # add 10, 15 to accurately capture data.
+    df = df[df['measurement_tstamp'].dt.hour.isin([6, 7, 8, 9, 16, 17, 18, 19])] # add 10, 15 to accurately capture data.
        
     # Join/filter on relevant urban TMCs
-    df_urban = pd.read_csv(os.path.join(os.path.dirname(__file__), 'H:/map21/perfMeasures/phed/data/urban_tmc.csv'))                   
-    df = pd.merge(df, df_urban, left_on=df['tmc_code'], right_on=df_urban['Tmc'], how='inner')
-
+    df_urban = pd.read_csv(os.path.join(os.path.dirname(__file__), 'H:/map21/perfMeasures/phed/data/urban_tmc.csv'))
+    df = pd.merge(df_urban, df, left_on=df_urban['Tmc'], right_on=df['tmc_code'], how='inner')
+    
     # Join TMC Metadata
     df_meta = pd.read_csv(os.path.join(os.path.dirname(__file__), 
                          'H:/map21/perfMeasures/phed/data/TMC_Identification_NPMRDS (Trucks and passenger vehicles).csv'),

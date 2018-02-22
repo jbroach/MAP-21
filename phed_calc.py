@@ -93,9 +93,9 @@ def main():
         df = pd.concat([df, df_temp])
     ############################################################################
     
-    #### One-month test dataset
+    #### UNCOMMENT TO USE ONE-MONTH TEST DATSET ###############################
     #df = pd.read_csv(os.path.join(os.path.dirname(__file__), 'Feb2017_test/Feb2017_test.csv')) #fix in script implementation
-    ####
+    ###########################################################################
     
     # Filter by timestamps
     df['measurement_tstamp'] = pd.to_datetime(df['measurement_tstamp'])
@@ -113,7 +113,7 @@ def main():
        
     # Join/filter on relevant urban TMCs
     df_urban = pd.read_csv(os.path.join(os.path.dirname(__file__), 'H:/map21/perfMeasures/phed/data/urban_tmc.csv'))                   
-    df = pd.merge(df, df_urban, left_on=df['tmc_code'], right_on=df_meta['Tmc'], how='inner')
+    df = pd.merge(df, df_urban, left_on=df['tmc_code'], right_on=df_urban['Tmc'], how='inner')
 
     # Join TMC Metadata
     df_meta = pd.read_csv(os.path.join(os.path.dirname(__file__), 

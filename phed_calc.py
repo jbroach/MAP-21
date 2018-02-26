@@ -8,7 +8,7 @@ import datetime as dt
 
 def per_capita_TED(sum_11_mo):
     year_adjusted_TED = (sum_11_mo / 11) + sum_11_mo
-    pop_PDX = 639863
+    pop_PDX = 1577456
     return year_adjusted_TED / pop_PDX
 
 def TED_summation(df_teds):
@@ -75,6 +75,8 @@ def main():
     Joins Metro peaking factor csv for calibrated hourly aadt volumes and
     HERE data, provided by ODOT for relevant speed limits on TMCs.
     """
+    
+    startTime = dt.datetime.now()
     pd.set_option('display.max_rows', None)
     
     ############ UNCOMMENT FOR FULL DATASET###################################
@@ -109,7 +111,7 @@ def main():
     df = pd.merge(df, df_peak, left_on=df['hour'], right_on=df_peak['pk_hour'], how='left')
 
     df = df[df['measurement_tstamp'].dt.weekday.isin([0, 1, 2, 3, 4])] # Capture weekdays only
-    df = df[df['measurement_tstamp'].dt.hour.isin([6, 7, 8, 9, 16, 17, 18, 19])] # add 10, 15 to accurately capture data.
+    df = df[df['measurement_tstamp'].dt.hour.isin([6, 7, 8, 9, 10, 15, 16, 17, 18, 19])] # add 10, 15 to accurately capture data.
        
     # Join/filter on relevant urban TMCs
     df_urban = pd.read_csv(os.path.join(os.path.dirname(__file__), 'H:/map21/perfMeasures/phed/data/urban_tmc.csv'))
@@ -125,7 +127,7 @@ def main():
     df_here = pd.read_csv(os.path.join(os.path.dirname(__file__), 
         'H:/map21/perfMeasures/phed/data/HERE_OR_Static_TriCounty_edit.csv'),
         usecols=['TMC_HERE', 'SPEED_LIMIT'])
-    df = pd.merge(df, df_here, left_on=df['tmc_code'], right_on=df_here['TMC_HERE'], how='left', validate='m:1') #This may need to be a left join.
+    df = pd.merge(df, df_here, left_on=df['tmc_code'], right_on=df_here['TMC_HERE'], how='left', validate='m:1')
     
     # Apply calculation functions
     df = threshold_speed(df)
@@ -141,6 +143,8 @@ def main():
    
     result = per_capita_TED(df['TED'].sum())
     print(result)
+    endTime = dt.datetime.now()
+    print("Script finished in {0}.".format(endTime - startTime))
 
 if __name__ == '__main__':
     main()

@@ -35,7 +35,7 @@ def total_excessive_delay(df_ted):
     
 def peak_hr(df_pk):
     # Uses Metro peaking calibrations.
-    df_pk['PK_HR'] = (df_pk['aadt'] * df_pk['2015_15-min_Combined']).round()
+    df_pk['PK_HR'] = (df_pk['dir_aadt'] * df_pk['2015_15-min_Combined']).round()
     return df_pk
 
 def excessive_delay(df_ed):
@@ -57,10 +57,11 @@ def segment_delay(df_sd):
     return df_sd
 
 def AADT_splits(df_spl):
-    df_spl['aadt_auto'] = df_spl['aadt'] - (df_spl['aadt_singl'] + df_spl['aadt_combi'])
-    df_spl['pct_auto'] = df_spl['aadt_auto'] / df_spl['aadt']
-    df_spl['pct_bus'] = df_spl['aadt_singl'] / df_spl['aadt']
-    df_spl['pct_truck'] = df_spl['aadt_combi'] / df_spl['aadt']
+    df_spl['dir_aadt'] = (df_spl['aadt']/df_spl['faciltype']).round()
+    df_spl['aadt_auto'] = df_spl['dir_aadt'] - (df_spl['aadt_singl'] + df_spl['aadt_combi'])
+    df_spl['pct_auto'] = df_spl['aadt_auto'] / df_spl['dir_aadt']
+    df_spl['pct_bus'] = df_spl['aadt_singl'] / df_spl['dir_aadt']
+    df_spl['pct_truck'] = df_spl['aadt_combi'] / df_spl['dir_aadt']
     return df_spl
 
 def threshold_speed(df_ts):
@@ -71,7 +72,7 @@ def threshold_speed(df_ts):
 
 def main():
     """
-    Main script to calculate Total Excessive Delay per FHWA guidelines. 
+    Main script to calculate Peak Hr. Excessive Delay per FHWA guidelines. 
     Joins Metro peaking factor csv for calibrated hourly aadt volumes and
     HERE data, provided by ODOT for relevant speed limits on TMCs.
     """
@@ -91,12 +92,12 @@ def main():
         filename = q + folder_end + file_end
         path = q + folder_end
         full_path = path + '/' + filename
-        df_temp = pd.read_csv(os.path.join(os.path.dirname(__file__), drive_path + full_path)) #fix in script implementation
+        df_temp = pd.read_csv(os.path.join(os.path.dirname(__file__), drive_path + full_path)) 
         df = pd.concat([df, df_temp])
     ###########################################################################
     
     #### UNCOMMENT TO USE ONE-MONTH TEST DATSET ###############################
-    # df = pd.read_csv(os.path.join(os.path.dirname(__file__), 'Feb2017_test/Feb2017_test.csv')) #fix in script implementation
+    # df = pd.read_csv(os.path.join(os.path.dirname(__file__), 'Feb2017_test/Feb2017_test.csv')) 
     ###########################################################################
     
     # Filter by timestamps
@@ -120,7 +121,7 @@ def main():
     # Join TMC Metadata
     df_meta = pd.read_csv(os.path.join(os.path.dirname(__file__), 
                          'H:/map21/perfMeasures/phed/data/TMC_Identification_NPMRDS (Trucks and passenger vehicles).csv'),
-                          usecols=['tmc', 'miles', 'tmclinear', 'aadt', 'aadt_singl', 'aadt_combi' ])
+                          usecols=['tmc', 'miles', 'tmclinear', 'faciltype', 'aadt', 'aadt_singl', 'aadt_combi' ])
     df = pd.merge(df, df_meta, left_on=df['tmc_code'], right_on=df_meta['tmc'], how='inner')
     
     # Join HERE data
@@ -141,8 +142,8 @@ def main():
     df = df[['tmc_code', 'TED']]
     df.to_csv('phed_out.csv')
    
-    result = per_capita_TED(df['TED'].sum())
-    print(result)
+    result = round(per_capita_TED(df['TED'].sum()), 2)
+    print("Calulated {} peak hour excessive delay per capita.".format(str(result)))
     endTime = dt.datetime.now()
     print("Script finished in {0}.".format(endTime - startTime))
 

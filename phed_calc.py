@@ -110,6 +110,7 @@ def main():
         usecols=['startTime', '2015_15-min_Combined'])
     df_peak['pk_hour'] = pd.to_datetime(df_peak['startTime']).dt.hour
     df = pd.merge(df, df_peak, left_on=df['hour'], right_on=df_peak['pk_hour'], how='left')
+    print("original full dataset is ", df.shape)
 
     df = df[df['measurement_tstamp'].dt.weekday.isin([0, 1, 2, 3, 4])] # Capture weekdays only
     df = df[df['measurement_tstamp'].dt.hour.isin([6, 7, 8, 9, 10, 15, 16, 17, 18, 19])] # add 10, 15 to accurately capture data.
@@ -129,7 +130,8 @@ def main():
         'H:/map21/perfMeasures/phed/data/HERE_OR_Static_TriCounty_edit.csv'),
         usecols=['TMC_HERE', 'SPEED_LIMIT'])
     df = pd.merge(df, df_here, left_on=df['tmc_code'], right_on=df_here['TMC_HERE'], how='left', validate='m:1')
-    
+    print("Filtered dataset is ", df.shape)
+
     # Apply calculation functions
     df = threshold_speed(df)
     df = AADT_splits(df)

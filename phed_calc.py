@@ -85,7 +85,7 @@ def threshold_speed(df_ts):
 
 def main():
     """
-    Main script to calculate Peak Hr. Excessive Delay per FHWA guidelines. 
+    Main script to calculate Peak Hr. Excessive Delay per FHWA guidelines.
     Joins Metro peaking factor csv for calibrated hourly aadt volumes and
     HERE data, provided by ODOT for relevant speed limits on TMCs.
     """
@@ -114,7 +114,7 @@ def main():
     
     ###########################################################################
     #              UNCOMMENT TO USE ONE-MONTH TEST DATSET                     #
-    # df = pd.read_csv(os.path.join(os.path.dirname(__file__), 
+    # df = pd.read_csv(os.path.join(os.path.dirname(__file__),
     # 'Feb2017_test/Feb2017_test.csv'))
     ###########################################################################
     
@@ -133,7 +133,6 @@ def main():
     df = pd.merge(
         df, df_peak, left_on=df['hour'],
         right_on=df_peak['pk_hour'], how='left')
-    print("original full dataset is ", df.shape)
 
     # Capture weekdays only
     df = df[df['measurement_tstamp'].dt.weekday.isin([0, 1, 2, 3, 4])]

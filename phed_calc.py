@@ -122,11 +122,12 @@ def main():
     df['measurement_tstamp'] = pd.to_datetime(df['measurement_tstamp'])
     df['hour'] = df['measurement_tstamp'].dt.hour
     
+    wd = 'H:/map21/perfMeasures/phed/data/'
     # Join peakingFactor data
     df_peak = pd.read_csv(
         os.path.join(
             os.path.dirname(__file__),
-            'H:/map21/perfMeasures/phed/data/peakingFactors_join_edit.csv'),
+            wd + 'peakingFactors_join_edit.csv'),
         usecols=['startTime', '2015_15-min_Combined'])
     df_peak['pk_hour'] = pd.to_datetime(df_peak['startTime']).dt.hour
     df = pd.merge(
@@ -141,9 +142,8 @@ def main():
        
     # Join/filter on relevant urban TMCs
     df_urban = pd.read_csv(
-        os.path.join(
-            os.path.dirname(__file__),
-            'H:/map21/perfMeasures/phed/data/urban_tmc.csv'))
+        os.path.join(os.path.dirname(__file__), wd + 'urban_tmc.csv'))
+    
     df = pd.merge(df_urban, df, left_on=df_urban['Tmc'],
                   right_on=df['tmc_code'], how='inner')
     
@@ -151,20 +151,21 @@ def main():
     df_meta = pd.read_csv(
         os.path.join(
             os.path.dirname(__file__),
-            'H:/map21/perfMeasures/phed/data/ \
-            TMC_Identification_NPMRDS (Trucks and passenger vehicles).csv'),
+            wd +
+            'TMC_Identification_NPMRDS (Trucks and passenger vehicles).csv'),
         usecols=['tmc', 'miles', 'tmclinear', 'faciltype', 'aadt',
                  'aadt_singl', 'aadt_combi'])
+    
     df = pd.merge(df, df_meta, left_on=df['tmc_code'],
                   right_on=df_meta['tmc'], how='inner')
     
     # Join HERE data
     df_here = pd.read_csv(
         os.path.join(
-            os.path.dirname(__file__),
-            'H:/map21/perfMeasures/phed/data/ \
-            HERE_OR_Static_TriCounty_edit.csv'),
+            os.path.dirname(__file__), wd +
+            'HERE_OR_Static_TriCounty_edit.csv'),
         usecols=['TMC_HERE', 'SPEED_LIMIT'])
+    
     df = pd.merge(df, df_here, left_on=df['tmc_code'],
                   right_on=df_here['TMC_HERE'], how='left', validate='m:1')
 

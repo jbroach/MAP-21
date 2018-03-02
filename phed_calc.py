@@ -96,7 +96,7 @@ def main():
     ###############################################################
     #               UNCOMMENT FOR FULL DATASET                    #
     drive_path = 'H:/map21/perfMeasures/phed/data/original_data/'
-    quarters = ['2017Q1', '2017Q2', '2017Q3', '2017Q4'] 
+    quarters = ['2017Q1', '2017Q2', '2017Q3', '2017Q4']
     folder_end = '_TriCounty_Metro_15-min'
     file_end = '_NPMRDS (Trucks and passenger vehicles).csv'
 
@@ -111,17 +111,17 @@ def main():
                         os.path.dirname(__file__), drive_path + full_path))
         df = pd.concat([df, df_temp])
     ###########################################################################
-    
+
     ###########################################################################
     #              UNCOMMENT TO USE ONE-MONTH TEST DATSET                     #
     # df = pd.read_csv(os.path.join(os.path.dirname(__file__),
     # 'Feb2017_test/Feb2017_test.csv'))
     ###########################################################################
-    
+
     # Filter by timestamps
     df['measurement_tstamp'] = pd.to_datetime(df['measurement_tstamp'])
     df['hour'] = df['measurement_tstamp'].dt.hour
-    
+
     wd = 'H:/map21/perfMeasures/phed/data/'
     # Join peakingFactor data
     df_peak = pd.read_csv(
@@ -138,14 +138,14 @@ def main():
     df = df[df['measurement_tstamp'].dt.weekday.isin([0, 1, 2, 3, 4])]
     df = df[df['measurement_tstamp'].dt.hour.isin(
         [6, 7, 8, 9, 10, 15, 16, 17, 18, 19])]
-       
+
     # Join/filter on relevant urban TMCs
     df_urban = pd.read_csv(
         os.path.join(os.path.dirname(__file__), wd + 'urban_tmc.csv'))
-    
+
     df = pd.merge(df_urban, df, left_on=df_urban['Tmc'],
                   right_on=df['tmc_code'], how='inner')
-    
+
     # Join TMC Metadata
     df_meta = pd.read_csv(
         os.path.join(
@@ -154,17 +154,17 @@ def main():
             'TMC_Identification_NPMRDS (Trucks and passenger vehicles).csv'),
         usecols=['tmc', 'miles', 'tmclinear', 'faciltype', 'aadt',
                  'aadt_singl', 'aadt_combi'])
-    
+
     df = pd.merge(df, df_meta, left_on=df['tmc_code'],
                   right_on=df_meta['tmc'], how='inner')
-    
+
     # Join HERE data
     df_here = pd.read_csv(
         os.path.join(
             os.path.dirname(__file__), wd +
             'HERE_OR_Static_TriCounty_edit.csv'),
         usecols=['TMC_HERE', 'SPEED_LIMIT'])
-    
+
     df = pd.merge(df, df_here, left_on=df['tmc_code'],
                   right_on=df_here['TMC_HERE'], how='left', validate='m:1')
 
@@ -179,7 +179,7 @@ def main():
     df = TED_summation(df)
     df = df[['tmc_code', 'TED']]
     # df.to_csv('phed_out.csv')
-   
+
     result = round(per_capita_TED(df['TED'].sum()), 2)
     print("Calulated {} peak hour excessive delay per capita."
           .format(str(result)))

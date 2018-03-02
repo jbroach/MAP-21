@@ -93,7 +93,6 @@ for (q in quarters) {
 # Filter out weekends:
 tb <- tb[!(weekdays(as.Date(measurement_tstamp)) %in% c("Saturday", "Sunday"))]
 # Extract hour from datetime timestamp:
-
 tb[, pk_hr := as.integer(strftime(measurement_tstamp, format="%H"))]
 tb_peak <- fread("H:/map21/perfMeasures/phed/data/peakingFactors_join_edit.csv")
 # Convert text time to standalone integer hour. 

@@ -101,10 +101,9 @@ for (q in quarters) {
 tb <- tb[!(weekdays(ymd_hms(measurement_tstamp)) %in% c("Saturday", "Sunday"))]
 # Extract hour from datetime timestamp:
 tb[, pk_hr := hour(measurement_tstamp)]
-# TODO STOP
 tb_peak <- fread("peakingFactors_join_edit.csv")
 # Convert text time to standalone integer hour. 
-tb_peak[, pk_hour := as.integer(hour(strptime(startTime, format = "%H:%M")))]
+tb_peak[, pk_hour := as.integer(hour(parse_date_time(startTime, orders="HM")))]
 # Left join to main data file.
 tb <- merge(x = tb, y = tb_peak, by.x = "pk_hr", by.y = "pk_hour",
             all.x = TRUE)

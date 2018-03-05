@@ -1,5 +1,6 @@
 # Use data.table library
 library(data.table)
+library(lubridate) # Speed up slow time parsing behavior.
 
 per_capita_TED <- function(sum_11_mo) {
   year_adjusted_TED <- (sum_11_mo / 11) + sum_11_mo
@@ -97,13 +98,13 @@ for (q in quarters) {
 
 #tb <- fread("C:/Users/saavedrak/metro_work/PHED/Feb2017_test/Feb2017_test.csv")
 # Filter out weekends:
-tb <- tb[!(weekdays(as.Date(measurement_tstamp)) %in% c("Saturday", "Sunday"))]
+tb <- tb[!(weekdays(ymd_hms(measurement_tstamp)) %in% c("Saturday", "Sunday"))]
 # Extract hour from datetime timestamp:
-tb[, pk_hr := as.integer(strftime(measurement_tstamp, format = "%H"))]
+tb[, pk_hr := hour(measurement_tstamp)]
+# TODO STOP
 tb_peak <- fread("peakingFactors_join_edit.csv")
 # Convert text time to standalone integer hour. 
-tb_peak[, pk_hour := as.integer(
-  strftime(strptime(startTime, format = "%H:%M"), format = "%H"))]
+tb_peak[, pk_hour := as.integer(hour(strptime(startTime, format = "%H:%M")))]
 # Left join to main data file.
 tb <- merge(x = tb, y = tb_peak, by.x = "pk_hr", by.y = "pk_hour",
             all.x = TRUE)

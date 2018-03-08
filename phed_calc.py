@@ -1,6 +1,6 @@
 """
 Script to calculate Peak Hr. Excessive Delay per FHWA guidelines.
-Joins Metro peaking factor csv for calibrated hourly aadt volumes and HERE 
+Joins Metro peaking factor csv for calibrated hourly aadt volumes and HERE
 data, provided by ODOT for relevant speed limits on TMCs.
 
 Script by Kevin Saavedra, Metro, kevin.saavedra@oregonmetro.gov
@@ -124,7 +124,7 @@ def threshold_speed(df_ts):
     Posted Speed Limit * .6.
     Args: df_ts, a pandas dataframe.
     Returns: df_ts, A pandas dataframe with new columns:
-    posted_mult, TS.
+        'posted_mult', 'TS'.
     """
     df_ts['posted_mult'] = df_ts['SPEED_LIMIT'] * .6
     df_ts['TS'] = np.where(df_ts['posted_mult'] > 20, df_ts['posted_mult'], 20)

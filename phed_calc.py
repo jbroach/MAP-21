@@ -1,5 +1,11 @@
-# Script by Kevin Saavedra, Metro, kevin.saavedra@oregonmetro.gov
-# Adapted from Excel tables created by Rich Arnold, P.E., ODOT
+"""
+Script to calculate Peak Hr. Excessive Delay per FHWA guidelines.
+Joins Metro peaking factor csv for calibrated hourly aadt volumes and HERE 
+data, provided by ODOT for relevant speed limits on TMCs.
+
+Script by Kevin Saavedra, Metro, kevin.saavedra@oregonmetro.gov
+Adapted from Excel tables created by Rich Arnold, P.E., ODOT
+"""
 
 import os
 import pandas as pd
@@ -8,17 +14,25 @@ import datetime as dt
 
 
 def per_capita_TED(sum_11_mo):
+    """Calculates final Peak Hour Excessive Delay number.
+    Args: sum_11_mo, the integer sum of all TED values.
+    Returns: A value for Peak Hour Excessive Delay per capita.
+    """
     year_adjusted_TED = (sum_11_mo / 11) + sum_11_mo
     pop_PDX = 1577456
     return year_adjusted_TED / pop_PDX
 
 
 def TED_summation(df_teds):
-    # Vehicle occupancy numbers
+    """Calculates final TED summation.
+    Args: df_teds, a pandas dataframe.
+    Returns: df_teds, a pandas dataframe with new columns:
+        AVOc, AVOb, AVOt (car, bus, and truck average vehicle occupancy).
+    """
+    # Working vehicle occupancy assumptions:
     VOCa = 1.4
     VOCb = 10
     VOCt = 1
-    # Working assumptions above
     df_teds['AVOc'] = df_teds['pct_auto'] * VOCa
     df_teds['AVOb'] = df_teds['pct_bus'] * VOCb
     df_teds['AVOt'] = df_teds['pct_truck'] * VOCt
@@ -29,8 +43,12 @@ def TED_summation(df_teds):
 
 
 def total_excessive_delay(df_ted):
+    """Calculates Total Excessive Delay per given TMC using padas groupby
+    function.
+    Args: df_ted, a pandas dataframe.
+    Returns: df_ted, a pandas dataframe grouped by TMC.
+    """
     df_ted['TED_seg'] = (df_ted['ED'] * df_ted['PK_HR']).round()
-    # Groupby for summation by TMC
     ted_operations = ({'TED_seg': 'sum',
                        'pct_auto': 'max',
                        'pct_bus': 'max',
@@ -40,13 +58,22 @@ def total_excessive_delay(df_ted):
 
 
 def peak_hr(df_pk):
-    # Uses Metro peaking calibrations.
+    """Performs Peak Hour calculations by combining directional aadt values
+    with vehicle hourly volume factors determined by Metro.
+    Args: df_pk, a pandas dataframe.
+    Returns: df_pk, a pandas dataframe conaining new PK_HR column with
+    completed calculations.
+    """
     df_pk['PK_HR'] = (df_pk['dir_aadt'] *
                       df_pk['2015_15-min_Combined']).round()
     return df_pk
 
 
 def excessive_delay(df_ed):
+    """Calculates Excessive Delay.
+    Args: df_ed, a pandas dataframe.
+    Returns: df_ed, a pandas dataframe containing new column ED with completed
+    calculations."""
     df_ed['ED'] = df_ed['RSD'] / 3600  # check this value hundredths of an hour
     df_ed['ED'] = df_ed['ED'].round(3)
     df_ed['ED'] = np.where(df_ed['ED'] >= 0, df_ed['ED'], 0)
@@ -54,19 +81,35 @@ def excessive_delay(df_ed):
 
 
 def RSD(df_rsd):
-    # returns travel time segment delay calculations.
+    """Calculates RSD (Travel Time Segment delay).
+    Args: df_rsd, a pandas dataframe.
+    Returns, df_rsd, a pandas dataframe with new column RSD with completed
+    calculations.
+    """
     df_rsd['RSD'] = df_rsd['travel_time_seconds'] - df_rsd['SD']
     df_rsd['RSD'] = np.where(df_rsd['RSD'] >= 0, df_rsd['RSD'], 0)
     return df_rsd
 
 
 def segment_delay(df_sd):
-    # AKA EDTTTs value (Excessive Delay Threshold Travel Time)
+    """Calculates Excessive Delay Threshold Travel Time (EDTTT).
+    Args: df_sd, a pandas dataframe.
+    Returns: df_sd, a pandas dataframe with new column SD with completed
+    calculations.
+    """
     df_sd['SD'] = (df_sd['miles'] / df_sd['TS']) * 3600
     return df_sd
 
 
 def AADT_splits(df_spl):
+    """Calculates AADT per vehicle type.
+    Args: df_spl, a pandas dataframe.
+    Returns: df_spl, a pandas dataframe containing new columns:
+        dir_aadt: directional aadt
+        aadt_auto: auto aadt
+        pct_auto, pct_bus, pct_truck : percentage mode splits of auto, bus and
+        trucks.
+    """
     df_spl['dir_aadt'] = (df_spl['aadt']/df_spl['faciltype']).round()
     df_spl['aadt_auto'] = df_spl['dir_aadt'] - \
         (df_spl['aadt_singl'] + df_spl['aadt_combi'])
@@ -77,19 +120,19 @@ def AADT_splits(df_spl):
 
 
 def threshold_speed(df_ts):
-    # TS is the larger of 20mph or Posted Speed Limit * .6
+    """Calculates Threshold Speed, defined as the larger of 20mph or
+    Posted Speed Limit * .6.
+    Args: df_ts, a pandas dataframe.
+    Returns: df_ts, A pandas dataframe with new columns:
+    posted_mult, TS.
+    """
     df_ts['posted_mult'] = df_ts['SPEED_LIMIT'] * .6
     df_ts['TS'] = np.where(df_ts['posted_mult'] > 20, df_ts['posted_mult'], 20)
     return df_ts
 
 
 def main():
-    """
-    Main script to calculate Peak Hr. Excessive Delay per FHWA guidelines.
-    Joins Metro peaking factor csv for calibrated hourly aadt volumes and
-    HERE data, provided by ODOT for relevant speed limits on TMCs.
-    """
-
+    """Main script to calculate PHED."""
     startTime = dt.datetime.now()
     pd.set_option('display.max_rows', None)
 

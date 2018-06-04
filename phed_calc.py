@@ -221,7 +221,7 @@ def main():
     df = total_excessive_delay(df)
     df = TED_summation(df)
     df = df[['tmc_code', 'TED']]
-    # df.to_csv('phed_out.csv')
+    df.to_csv('phed_out.csv')
 
     result = round(per_capita_TED(df['TED'].sum()), 2)
     print("Calulated {} peak hour excessive delay per capita."

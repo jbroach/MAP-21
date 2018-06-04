@@ -136,8 +136,7 @@ def main():
     print('Script started at {0}'.format(startTime))
     pd.set_option('display.max_rows', None)
 
-    ###############################################################
-    #               UNCOMMENT FOR FULL DATASET                    #
+
     drive_path = 'H:/map21/perfMeasures/phed/data/ODOT_Jun18/'
     quarters = ['2017Q1', '2017Q2', '2017Q3', '2017Q4']
     file_end = '_Metro_ALL.csv'
@@ -149,7 +148,7 @@ def main():
         df_temp = pd.read_csv(
                     os.path.join(
                         os.path.dirname(__file__), drive_path + filename),
-                        usecols = ['tmc_code', 'measurement_tstamp', 'miles',
+                            usecols=['tmc_code', 'measurement_tstamp', 'miles',
                          'travel_time_seconds', 'IsPrimary', 'AADT', 
                          'AADT_Singl', 'AADT_Combi', 'FacilType'])
         df_temp = df_temp[df_temp['IsPrimary'] == 1]
@@ -157,18 +156,18 @@ def main():
         print("Calculating timestamps for {0}...".format(q))
         df_temp['measurement_tstamp'] = pd.to_datetime(
             df_temp['measurement_tstamp'], format='%Y/%m/%d %I:%M:%S %p')
+
         df_temp['hour'] = df_temp['measurement_tstamp'].dt.hour
-      
         print("Filtering peak times for {0}...".format(q))
         # Capture weekdays only
         df_temp = df_temp[df_temp['measurement_tstamp'].dt.weekday.isin([0, 1, 2, 3, 4])]
         # Capture peak times only
         df_temp = df_temp[df_temp['measurement_tstamp'].dt.hour.isin(
-        [6, 7, 8, 9, 10, 15, 16, 17, 18, 19])]
-      
+                    [6, 7, 8, 9, 15, 16, 17, 18])]
+
         df = pd.concat([df, df_temp])        
 
-    ###########################################################################
+
     print("df contains {0} rows.".format(df.shape[0]))
     wd = 'H:/map21/perfMeasures/phed/data/'
     # Join peakingFactor data

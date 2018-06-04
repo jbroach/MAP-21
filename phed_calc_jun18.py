@@ -30,7 +30,7 @@ def TED_summation(df_teds):
     """
     # Working vehicle occupancy assumptions:
     VOCa = 1.4
-    VOCb = 10
+    VOCb = 12.6
     VOCt = 1
     df_teds['AVOc'] = df_teds['pct_auto'] * VOCa
     df_teds['AVOb'] = df_teds['pct_bus'] * VOCb
@@ -94,7 +94,7 @@ def segment_delay(df_sd):
     """Calculates Excessive Delay Threshold Travel Time (EDTTT).
     Args: df_sd, a pandas dataframe.
     Returns: df_sd, a pandas dataframe with new column SD with completed
-    calculations.
+    calculations, representing delay in seconds.
     """
     df_sd['SD'] = (df_sd['miles'] / df_sd['TS']) * 3600
     return df_sd
@@ -109,12 +109,12 @@ def AADT_splits(df_spl):
         pct_auto, pct_bus, pct_truck : percentage mode splits of auto, bus and
         trucks.
     """
-    df_spl['dir_aadt'] = (df_spl['aadt']/df_spl['faciltype']).round()
+    df_spl['dir_aadt'] = (df_spl['AADT']/df_spl['FacilType']).round()
     df_spl['aadt_auto'] = df_spl['dir_aadt'] - \
-        (df_spl['aadt_singl'] + df_spl['aadt_combi'])
+        (df_spl['AADT_Singl'] - df_spl['AADT_Combi'])
     df_spl['pct_auto'] = df_spl['aadt_auto'] / df_spl['dir_aadt']
-    df_spl['pct_bus'] = df_spl['aadt_singl'] / df_spl['dir_aadt']
-    df_spl['pct_truck'] = df_spl['aadt_combi'] / df_spl['dir_aadt']
+    df_spl['pct_bus'] = df_spl['AADT_Singl'] / df_spl['dir_aadt']
+    df_spl['pct_truck'] = df_spl['AADT_Combi'] / df_spl['dir_aadt']
     return df_spl
 
 
@@ -149,7 +149,7 @@ def main():
         df_temp = pd.read_csv(
                     os.path.join(
                         os.path.dirname(__file__), drive_path + filename),
-                        usecols = ['tmc_code', 'measurement_tstamp', 
+                        usecols = ['tmc_code', 'measurement_tstamp', 'miles',
                          'travel_time_seconds', 'IsPrimary', 'AADT', 
                          'AADT_Singl', 'AADT_Combi', 'FacilType'])
         df_temp = df_temp[df_temp['IsPrimary'] == 1]
@@ -169,7 +169,7 @@ def main():
         df = pd.concat([df, df_temp])        
 
     ###########################################################################
-
+    print("df contains {0} rows.".format(df.shape[0]))
     wd = 'H:/map21/perfMeasures/phed/data/'
     # Join peakingFactor data
     df_peak = pd.read_csv(
@@ -190,7 +190,7 @@ def main():
 
     df = pd.merge(df_urban, df, left_on=df_urban['Tmc'],
                   right_on=df['tmc_code'], how='inner')
-    """
+    
     # Join TMC Metadata
     df_meta = pd.read_csv(
         os.path.join(
@@ -203,15 +203,20 @@ def main():
     df = pd.merge(df, df_meta, left_on=df['tmc_code'],
                   right_on=df_meta['tmc'], how='inner')
 
+    """
+
+
     # Join HERE data
     df_here = pd.read_csv(
         os.path.join(
             os.path.dirname(__file__), wd +
-            'HERE_OR_Static_TriCounty_edit.csv'),
+            'HERE_OR_Static_TriCounty_orig.csv'),
         usecols=['TMC_HERE', 'SPEED_LIMIT'])
 
     df = pd.merge(df, df_here, left_on=df['tmc_code'],
-                  right_on=df_here['TMC_HERE'], how='left', validate='m:1')
+                  right_on=df_here['TMC_HERE'], how='left')
+    print("df contains {0} rows after HERE merge.".format(df.shape[0]))
+
 
     # Apply calculation functions
     df = threshold_speed(df)

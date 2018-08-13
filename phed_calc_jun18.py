@@ -5,6 +5,8 @@ data, provided by ODOT for relevant speed limits on TMCs.
 
 Script by Kevin Saavedra, Metro, kevin.saavedra@oregonmetro.gov
 Adapted from Excel tables created by Rich Arnold, P.E., ODOT
+
+NOTE: SCRIPT RELIES ON PANDAS v.0.22.0
 """
 
 import os
@@ -37,7 +39,7 @@ def TED_summation(df_teds):
     df_teds['AVOt'] = df_teds['pct_truck'] * VOCt
     df_teds['TED'] = (df_teds['TED_seg'] *
                       (df_teds['AVOc'] + df_teds['AVOb'] + df_teds['AVOt'])
-                      ).round(3)
+                      )
     return df_teds
 
 
@@ -47,7 +49,7 @@ def total_excessive_delay(df_ted):
     Args: df_ted, a pandas dataframe.
     Returns: df_ted, a pandas dataframe grouped by TMC.
     """
-    df_ted['TED_seg'] = (df_ted['ED'] * df_ted['PK_HR']).round()
+    df_ted['TED_seg'] = (df_ted['ED'] * df_ted['PK_HR'])
     ted_operations = ({'TED_seg': 'sum',
                        'pct_auto': 'max',
                        'pct_bus': 'max',
@@ -64,7 +66,7 @@ def peak_hr(df_pk):
     completed calculations.
     """
     df_pk['PK_HR'] = (df_pk['dir_aadt'] *
-                      df_pk['2015_15-min_Combined']).round()
+                      df_pk['2015_15-min_Combined'])
     return df_pk
 
 
@@ -74,7 +76,7 @@ def excessive_delay(df_ed):
     Returns: df_ed, a pandas dataframe containing new column ED with completed
     calculations."""
     df_ed['ED'] = df_ed['RSD'] / 3600  # check this value hundredths of an hour
-    df_ed['ED'] = df_ed['ED'].round(3)
+    df_ed['ED'] = df_ed['ED']
     df_ed['ED'] = np.where(df_ed['ED'] >= 0, df_ed['ED'], 0)
     return df_ed
 
@@ -109,7 +111,7 @@ def AADT_splits(df_spl):
         pct_auto, pct_bus, pct_truck : percentage mode splits of auto, bus and
         trucks.
     """
-    df_spl['dir_aadt'] = (df_spl['AADT']/df_spl['FacilType']).round()
+    df_spl['dir_aadt'] = (df_spl['AADT']/df_spl['FacilType'])
     df_spl['aadt_auto'] = df_spl['dir_aadt'] - \
         (df_spl['AADT_Singl'] - df_spl['AADT_Combi'])
     df_spl['pct_auto'] = df_spl['aadt_auto'] / df_spl['dir_aadt']
@@ -163,7 +165,7 @@ def main():
         df_temp = df_temp[df_temp['measurement_tstamp'].dt.weekday.isin([0, 1, 2, 3, 4])]
         # Capture peak times only
         df_temp = df_temp[df_temp['measurement_tstamp'].dt.hour.isin(
-                    [6, 7, 8, 9, 15, 16, 17, 18])]
+                                                [6, 7, 8, 9, 15, 16, 17, 18])]
 
         df = pd.concat([df, df_temp])        
 
@@ -204,7 +206,6 @@ def main():
 
     """
 
-
     # Join HERE data
     df_here = pd.read_csv(
         os.path.join(
@@ -215,6 +216,14 @@ def main():
     df = pd.merge(df, df_here, left_on=df['tmc_code'],
                   right_on=df_here['TMC_HERE'], how='left')
     print("df contains {0} rows after HERE merge.".format(df.shape[0]))
+
+    #Add'l filter for ODOT's TMC list
+    df_ODOT = pd.read_csv(os.path.join(os.path.dirname(__file__),
+                        wd + 'PHED_2017Q1-4_Metro_SumPHED_byTMC_rev.csv'), 
+                        usecols=['tmc_code'])
+    tmc_ODOT = df_ODOT['tmc_code'].tolist()
+
+    df = df[df['tmc_code'].isin(tmc_ODOT)]
 
 
     # Apply calculation functions

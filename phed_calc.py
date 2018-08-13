@@ -5,6 +5,8 @@ data, provided by ODOT for relevant speed limits on TMCs.
 
 Script by Kevin Saavedra, Metro, kevin.saavedra@oregonmetro.gov
 Adapted from Excel tables created by Rich Arnold, P.E., ODOT
+
+NOTE: SCRIPT RELIES ON PANDAS v.0.22.0
 """
 
 import os

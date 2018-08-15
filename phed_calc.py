@@ -40,7 +40,7 @@ def TED_summation(df_teds):
     df_teds['AVOt'] = df_teds['pct_truck'] * VOCt
     df_teds['TED'] = (df_teds['TED_seg'] *
                       (df_teds['AVOc'] + df_teds['AVOb'] + df_teds['AVOt'])
-                      ).round(3)
+                      )
     return df_teds
 
 
@@ -50,7 +50,7 @@ def total_excessive_delay(df_ted):
     Args: df_ted, a pandas dataframe.
     Returns: df_ted, a pandas dataframe grouped by TMC.
     """
-    df_ted['TED_seg'] = (df_ted['ED'] * df_ted['PK_HR']).round()
+    df_ted['TED_seg'] = (df_ted['ED'] * df_ted['PK_HR'])
     ted_operations = ({'TED_seg': 'sum',
                        'pct_auto': 'max',
                        'pct_bus': 'max',
@@ -67,7 +67,7 @@ def peak_hr(df_pk):
     completed calculations.
     """
     df_pk['PK_HR'] = (df_pk['dir_aadt'] *
-                      df_pk['2015_15-min_Combined']).round()
+                      df_pk['2015_15-min_Combined'])
     return df_pk
 
 

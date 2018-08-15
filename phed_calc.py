@@ -136,6 +136,7 @@ def threshold_speed(df_ts):
 def main():
     """Main script to calculate PHED."""
     startTime = dt.datetime.now()
+    print('Script started at {0}'.format(startTime))
     pd.set_option('display.max_rows', None)
 
     ###############################################################
@@ -151,10 +152,12 @@ def main():
         filename = q + folder_end + file_end
         path = q + folder_end
         full_path = path + '/' + filename
+        print("Loading {0} data...".format(q))
         df_temp = pd.read_csv(
                     os.path.join(
                         os.path.dirname(__file__), drive_path + full_path))
         df = pd.concat([df, df_temp])
+
     ###########################################################################
 
     ###########################################################################
@@ -164,6 +167,7 @@ def main():
     ###########################################################################
 
     # Filter by timestamps
+    print("Filtering timestamps...".format(q))
     df['measurement_tstamp'] = pd.to_datetime(df['measurement_tstamp'])
     df['hour'] = df['measurement_tstamp'].dt.hour
 
@@ -185,6 +189,7 @@ def main():
         [6, 7, 8, 9, 10, 15, 16, 17, 18, 19])]
 
     # Join/filter on relevant urban TMCs
+    print("Join/filter on urban TMCs...")
     df_urban = pd.read_csv(
         os.path.join(os.path.dirname(__file__), wd + 'urban_tmc.csv'))
 
@@ -214,6 +219,7 @@ def main():
                   right_on=df_here['TMC_HERE'], how='left', validate='m:1')
 
     # Apply calculation functions
+    print("Applying calculation functions...")
     df = threshold_speed(df)
     df = AADT_splits(df)
     df = segment_delay(df)

@@ -15,14 +15,15 @@ import numpy as np
 import datetime as dt
 
 
-def per_capita_TED(sum_11_mo):
+def per_capita_TED(sum_12_mo):
     """Calculates final Peak Hour Excessive Delay number.
     Args: sum_11_mo, the integer sum of all TED values.
     Returns: A value for Peak Hour Excessive Delay per capita.
     """
-    year_adjusted_TED = (sum_11_mo / 11) + sum_11_mo
+    # year_adjusted_TED = (sum_11_mo / 11) + sum_11_mo
     pop_PDX = 1577456
-    return year_adjusted_TED / pop_PDX
+    # return year_adjusted_TED / pop_PDX
+    return sum_12_mo / pop_PDX
 
 
 def TED_summation(df_teds):
@@ -33,7 +34,7 @@ def TED_summation(df_teds):
     """
     # Working vehicle occupancy assumptions:
     VOCa = 1.4
-    VOCb = 10
+    VOCb = 12.6
     VOCt = 1
     df_teds['AVOc'] = df_teds['pct_auto'] * VOCa
     df_teds['AVOb'] = df_teds['pct_bus'] * VOCb
@@ -142,7 +143,7 @@ def main():
     ###############################################################
     #               UNCOMMENT FOR FULL DATASET                    #
     drive_path = 'H:/map21/perfMeasures/phed/data/original_data/'
-    quarters = ['2017Q1', '2017Q2', '2017Q3', '2017Q4']
+    quarters = ['2017Q0', '2017Q1', '2017Q2', '2017Q3', '2017Q4']
     folder_end = '_TriCounty_Metro_15-min'
     file_end = '_NPMRDS (Trucks and passenger vehicles).csv'
 
@@ -156,7 +157,7 @@ def main():
         df_temp = pd.read_csv(
                     os.path.join(
                         os.path.dirname(__file__), drive_path + full_path))
-        df = pd.concat([df, df_temp])
+        df = pd.concat([df, df_temp], sort=False)
 
     ###########################################################################
 
@@ -216,7 +217,6 @@ def main():
     # This is necessary in pandas > v.0.22.0 ####
     df = df.drop('key_0', axis=1)
     #############################################
-
 
     # Join HERE data
     df_here = pd.read_csv(

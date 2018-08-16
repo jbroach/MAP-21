@@ -17,12 +17,10 @@ import datetime as dt
 
 def per_capita_TED(sum_12_mo):
     """Calculates final Peak Hour Excessive Delay number.
-    Args: sum_11_mo, the integer sum of all TED values.
+    Args: sum_12_mo, the integer sum of all TED values.
     Returns: A value for Peak Hour Excessive Delay per capita.
     """
-    # year_adjusted_TED = (sum_11_mo / 11) + sum_11_mo
     pop_PDX = 1577456
-    # return year_adjusted_TED / pop_PDX
     return sum_12_mo / pop_PDX
 
 
@@ -78,7 +76,7 @@ def excessive_delay(df_ed):
     Returns: df_ed, a pandas dataframe containing new column ED with completed
     calculations."""
     df_ed['ED'] = df_ed['RSD'] / 3600  # check this value hundredths of an hour
-    df_ed['ED'] = df_ed['ED']
+    df_ed['ED'] = df_ed['ED'].round(3)
     df_ed['ED'] = np.where(df_ed['ED'] >= 0, df_ed['ED'], 0)
     return df_ed
 
@@ -113,7 +111,7 @@ def AADT_splits(df_spl):
         pct_auto, pct_bus, pct_truck : percentage mode splits of auto, bus and
         trucks.
     """
-    df_spl['dir_aadt'] = (df_spl['aadt']/df_spl['faciltype'])
+    df_spl['dir_aadt'] = (df_spl['aadt']/df_spl['faciltype']).round()
     df_spl['aadt_auto'] = df_spl['dir_aadt'] - \
         (df_spl['aadt_singl'] + df_spl['aadt_combi'])
     df_spl['pct_auto'] = df_spl['aadt_auto'] / df_spl['dir_aadt']

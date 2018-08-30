@@ -20,6 +20,7 @@ def per_capita_TED(sum_12_mo):
     Args: sum_12_mo, the integer sum of all TED values.
     Returns: A value for Peak Hour Excessive Delay per capita.
     """
+    print(sum_12_mo)
     pop_PDX = 1577456
     return sum_12_mo / pop_PDX
 

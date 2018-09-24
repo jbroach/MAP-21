@@ -46,7 +46,7 @@ def tmc_group_operations(df_in):
     return df_tmc
 
 
-def calc_lottr(df_lottr, time_period):
+def calc_lottr(time_period, df_lottr):
     tmc_operations = ({'travel_time_seconds': 'mean'})
     df_lottr = df_lottr.groupby('tmc_code', as_index=False).agg(tmc_operations)
 
@@ -59,14 +59,15 @@ def agg_travel_times_mf(df_tt):
     # create empty dataframe
     df_combined = pd.DataFrame()
 
-    df_6_9 = df_tt['measurement_tstamp'].dt.hour.isin([6, 7, 8, 9])
-    df_10_15 = df_tt['measurement_tstamp'].dt.hour.isin([10, 11, 12, 13, 14, 15])
-    df_16_19 = df_tt['measurement_tstamp'].dt.hour.isin([16, 17, 18, 19])
+    df_6_9 = df_tt[df_tt['measurement_tstamp'].dt.hour.isin([6, 7, 8, 9])]
+    df_10_15 = df_tt[df_tt['measurement_tstamp'].dt.hour.isin([10, 11, 12, 13, 14, 15])]
+    df_16_19 = df_tt[df_tt['measurement_tstamp'].dt.hour.isin([16, 17, 18, 19])]
 
-    data = {df_6_9: '6_9', df_10_15: '10_15', df_16_19: '16_19'}
-    for key in data.items():
+    data = {'6_9': df_6_9, '10_15': df_10_15, '16_19': df_16_19}
+    for key, value in data.items():
         df = calc_lottr(key, value)
-        df = pd.concat([df_combined, df], sort=False)
+        df_combined = pd.concat([df_combined, df], sort=False)
+    return df_combined
 
 def AADT_splits(df_spl):
     """Calculates AADT per vehicle type.
@@ -95,7 +96,9 @@ def main():
     ###############################################################
     #               UNCOMMENT FOR FULL DATASET                    #
     drive_path = 'H:/map21/perfMeasures/phed/data/original_data/'
-    quarters = ['2017Q0', '2017Q1', '2017Q2', '2017Q3', '2017Q4']
+    quarters = ['2017Q0']
+    #quarters = ['2017Q0', '2017Q1', '2017Q2', '2017Q3', '2017Q4']
+
     folder_end = '_TriCounty_Metro_15-min'
     file_end = '_NPMRDS (Trucks and passenger vehicles).csv'
 
@@ -118,17 +121,7 @@ def main():
     df['hour'] = df['measurement_tstamp'].dt.hour
 
     wd = 'H:/map21/perfMeasures/phed/data/'
-    # Join peakingFactor data
-    df_peak = pd.read_csv(
-        os.path.join(
-            os.path.dirname(__file__),
-            wd + 'peakingFactors_join_edit.csv'),
-        usecols=['startTime', '2015_15-min_Combined'])
-    df_peak['pk_hour'] = pd.to_datetime(df_peak['startTime']).dt.hour
-    df = pd.merge(
-        df, df_peak, left_on=df['hour'],
-        right_on=df_peak['pk_hour'], how='left')
-
+   
     df = df[df['measurement_tstamp'].dt.hour.isin(
         [6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19])]
 
@@ -138,14 +131,12 @@ def main():
         os.path.join(os.path.dirname(__file__), wd + 'urban_tmc.csv'))
 
     # This is necessary in pandas > v.0.22.0 ####
-    df = df.drop('key_0', axis=1)
+    #df = df.drop('key_0', axis=1)
     #############################################
-
+    
     df = pd.merge(df_urban, df, how='inner', left_on=df_urban['Tmc'],
                   right_on=df['tmc_code'])
     df = df.drop('key_0', axis=1)
-
-
 
     """
     # Join TMC Metadata
@@ -183,16 +174,13 @@ def main():
     # df = AADT_splits(df)
 
     # Separate weekend and weekday dataframes for processing
-    df_mf = df['measurement_tstamp'].dt.weekday.isin([0, 1, 2, 3, 4])
-    df_sat_sun = df['measurement_tstamp'].dt.weekday.isin([5, 6])
 
-    df_new = pd.DataFrame()
-    df_lst = [df_mf, df_sat_sun]
-    for df in df_lst:
-        temp = agg_travel_times_mf(df)
-        df_new = pd.concat([df_new, temp], sort=False)
+    df_mf = df[df['measurement_tstamp'].dt.weekday.isin([0, 1, 2, 3, 4])]
+    df_sat_sun = df[df['measurement_tstamp'].dt.weekday.isin([5, 6])]
 
-    df_new.to_csv('lottr_out.csv')
+    df_mf = agg_travel_times_mf(df_mf)
+
+    df_mf.to_csv('lottr_out.csv')
 
     endTime = dt.datetime.now()
     print("Script finished in {0}.".format(endTime - startTime))

@@ -56,18 +56,23 @@ def calc_lottr(time_period, df_lottr):
 
 
 def agg_travel_times_mf(df_tt):
-    # create empty dataframe
-    df_combined = pd.DataFrame()
+    # create 'clean' dataframe consisting of non-duplicated TMCs
+    tmc_list = df_tt['tmc_code'].drop_duplicates().values.tolist()
+    tmc_format = {'tmc_code': tmc_list}
+    df_tmc = pd.DataFrame.from_dict(tmc_format)
 
     df_6_9 = df_tt[df_tt['measurement_tstamp'].dt.hour.isin([6, 7, 8, 9])]
-    df_10_15 = df_tt[df_tt['measurement_tstamp'].dt.hour.isin([10, 11, 12, 13, 14, 15])]
+    df_10_15 = df_tt[df_tt['measurement_tstamp'].dt.hour.isin([10, 11, 12, 13, 
+                                                               14, 15])]
     df_16_19 = df_tt[df_tt['measurement_tstamp'].dt.hour.isin([16, 17, 18, 19])]
-
     data = {'6_9': df_6_9, '10_15': df_10_15, '16_19': df_16_19}
+    
     for key, value in data.items():
         df = calc_lottr(key, value)
-        df_combined = pd.concat([df_combined, df], sort=False)
-    return df_combined
+        df_tmc = pd.merge(df_tmc, df, on='tmc_code', how='left')
+
+    return df_tmc
+
 
 def AADT_splits(df_spl):
     """Calculates AADT per vehicle type.

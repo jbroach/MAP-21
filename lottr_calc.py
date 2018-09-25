@@ -17,17 +17,18 @@ import datetime as dt
 
 
 def calc_pct_reliability(df_pct):
+    # Auto, Bus interstate
     df_int = df_pct.loc[df_pct['interstate'] == 1]
     df_int_sum = df_int['ttr'].sum()
     df_int_rel = df_int.loc[df_int['reliable'] == 1]
     int_rel_pct = df_int_rel['ttr'].sum() / df_int_sum
     
+    # Auto, Bus non-interstate
     df_non_int = df_pct.loc[df_pct['interstate'] != 1]
     df_non_int_sum = df_non_int['ttr'].sum()
     df_non_int_rel = df_non_int.loc[df_non_int['reliable'] == 1]
     non_int_rel_pct = df_non_int_rel['ttr'].sum() / df_non_int_sum
 
-    
     return int_rel_pct, non_int_rel_pct
 
 
@@ -88,6 +89,7 @@ def calc_lottr(days, time_period, df_lottr):
 
     return df_lottr
   
+
 
 def agg_travel_time_sat_sun(df_tt):
     """Aggregates weekend values."""
@@ -159,7 +161,7 @@ def main():
     df['hour'] = df['measurement_tstamp'].dt.hour
 
     wd = 'H:/map21/perfMeasures/phed/data/'
-   
+    
     df = df[df['measurement_tstamp'].dt.hour.isin(
         [6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19])]
 

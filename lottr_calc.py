@@ -15,63 +15,36 @@ import pandas as pd
 import numpy as np
 import datetime as dt
 
-def TED_summation(df_teds):
-    """Calculates final TED summation.
-    Args: df_teds, a pandas dataframe.
-    Returns: df_teds, a pandas dataframe with new columns:
-        AVOc, AVOb, AVOt (car, bus, and truck average vehicle occupancy).
+
+def calc_pct_reliability(df_pct):
+    df_int = df_pct.loc[df_pct['interstate'] == 1]
+    df_int_sum = df_int['ttr'].sum()
+    df_int_rel = df_int.loc[df_int['reliable'] == 1]
+    int_rel_pct = df_int_rel['ttr'].sum() / df_int_sum
+    
+    df_non_int = df_pct.loc[df_pct['interstate'] != 1]
+    df_non_int_sum = df_non_int['ttr'].sum()
+    df_non_int_rel = df_non_int.loc[df_non_int['reliable'] == 1]
+    non_int_rel_pct = df_non_int_rel['ttr'].sum() / df_non_int_sum
+
+    
+    return int_rel_pct, non_int_rel_pct
+
+
+def calc_ttr(df_ttr):
+    """Calculate travel time reliability for auto and bus passengers.
     """
     # Working vehicle occupancy assumptions:
     VOCa = 1.4
     VOCb = 12.6
-    VOCt = 1
-    df_teds['AVOc'] = df_teds['pct_auto'] * VOCa
-    df_teds['AVOb'] = df_teds['pct_bus'] * VOCb
-    df_teds['AVOt'] = df_teds['pct_truck'] * VOCt
-    df_teds['TED'] = (df_teds['TED_seg'] *
-                      (df_teds['AVOc'] + df_teds['AVOb'] + df_teds['AVOt'])
-                      )
-    return df_teds
-
-
-def tmc_group_operations(df_in):
-    tmc_operations = ({'LENGTH': 'max',
-                       'SPDLIMIT': 'max',
-                       'FREEFLOW': 'mean',
-                       'MEAN': 'mean',
-                       'MEAN_5': lambda x: np.percentile(x, 5),
-                       'MEAN_95': lambda x: np.percentile(x, 95),
-                       'CONFIDENCE': 'mean'})
-    df_in = df_in.groupby('TMC', as_index=False).agg(tmc_operations)
-    return df_tmc
-
-
-def calc_lottr(time_period, df_lottr):
-    tmc_operations = ({'travel_time_seconds': 'mean'})
-    df_lottr = df_lottr.groupby('tmc_code', as_index=False).agg(tmc_operations)
-
-    column_name = 'MF_{}'.format(time_period)
-    df_lottr[column_name] = np.percentile(df_lottr['travel_time_seconds'], 8) / df_lottr['travel_time_seconds']
-    return df_lottr
-
-
-def agg_travel_times_mf(df_tt):
-    # create 'clean' dataframe consisting of non-duplicated TMCs
-    tmc_list = df_tt['tmc_code'].drop_duplicates().values.tolist()
-    tmc_format = {'tmc_code': tmc_list}
-    df_tmc = pd.DataFrame.from_dict(tmc_format)
-
-    df_6_9 = df_tt[df_tt['measurement_tstamp'].dt.hour.isin([6, 7, 8, 9])]
-    df_10_15 = df_tt[df_tt['measurement_tstamp'].dt.hour.isin([10, 11, 12, 13, 
-                                                               14, 15])]
-    df_16_19 = df_tt[df_tt['measurement_tstamp'].dt.hour.isin([16, 17, 18, 19])]
-    data = {'6_9': df_6_9, '10_15': df_10_15, '16_19': df_16_19}
     
-    for key, value in data.items():
-        df = calc_lottr(key, value)
-        df_tmc = pd.merge(df_tmc, df, on='tmc_code', how='left')
+    df_ttr['VOLa'] = df_ttr['pct_auto'] * df_ttr['dir_aadt'] * 365
+    df_ttr['VOLb'] = df_ttr['pct_bus'] * df_ttr['dir_aadt'] * 365
 
-    return df_tmc
+    df_ttr['ttr'] = (df_ttr['miles'] * df_ttr['VOLa'] * VOCa 
+                     + df_ttr['miles'] * df_ttr['VOLb'] *VOCb)
+
+    return df_ttr
 
 
 def AADT_splits(df_spl):
@@ -88,8 +61,68 @@ def AADT_splits(df_spl):
         (df_spl['aadt_singl'] + df_spl['aadt_combi'])
     df_spl['pct_auto'] = df_spl['aadt_auto'] / df_spl['dir_aadt']
     df_spl['pct_bus'] = df_spl['aadt_singl'] / df_spl['dir_aadt']
-    df_spl['pct_truck'] = df_spl['aadt_combi'] / df_spl['dir_aadt']
     return df_spl
+
+
+def check_reliable(df_rel):
+    df_rel['reliable'] = np.where(
+                                   (df_rel['MF_6_9'] < 1.5) 
+                                   & (df_rel['MF_10_15'] < 1.5) 
+                                   & (df_rel['MF_16_19'] < 1.5)
+                                   & (df_rel['SATSUN_6_19'] < 1.5),
+                                   1, 0)
+    return df_rel
+
+
+def calc_lottr(days, time_period, df_lottr):
+    df_lottr['80_pct_tt'] = df_lottr['travel_time_seconds']
+    df_lottr['50_pct_tt'] = df_lottr['travel_time_seconds'] 
+
+    tmc_operations = ({'80_pct_tt': lambda x: np.percentile(x, 80),
+                       '50_pct_tt': lambda x: np.percentile(x, 50)})
+    
+    df_lottr = df_lottr.groupby('tmc_code', as_index=False).agg(tmc_operations)
+    column_name = '{0}_{1}'.format(days, time_period)
+    df_lottr[column_name] = df_lottr['80_pct_tt'] / df_lottr['50_pct_tt']
+    #df_lottr = df_lottr.drop('travel_time_seconds', axis=1)
+
+    return df_lottr
+  
+
+def agg_travel_time_sat_sun(df_tt):
+    """Aggregates weekend values."""
+    # create 'clean' dataframe consisting of non-duplicated TMCs
+    tmc_list = df_tt['tmc_code'].drop_duplicates().values.tolist()
+    tmc_format = {'tmc_code': tmc_list}
+    df_tmc = pd.DataFrame.from_dict(tmc_format)
+
+    df_6_19 = df_tt[df_tt['measurement_tstamp'].dt.hour.isin(
+        [6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19])]
+   
+    df = calc_lottr('SATSUN', '6_19', df_6_19)
+    df_tmc = pd.merge(df_tmc, df, on='tmc_code', how='left')
+
+    return df_tmc
+
+
+def agg_travel_times_mf(df_tt):
+    """Aggregates weekday values"""
+    # create 'clean' dataframe consisting of non-duplicated TMCs
+    tmc_list = df_tt['tmc_code'].drop_duplicates().values.tolist()
+    tmc_format = {'tmc_code': tmc_list}
+    df_tmc = pd.DataFrame.from_dict(tmc_format)
+
+    df_6_9 = df_tt[df_tt['measurement_tstamp'].dt.hour.isin([6, 7, 8, 9])]
+    df_10_15 = df_tt[df_tt['measurement_tstamp'].dt.hour.isin([10, 11, 12, 13, 
+                                                               14, 15])]
+    df_16_19 = df_tt[df_tt['measurement_tstamp'].dt.hour.isin([16, 17, 18, 19])]
+    data = {'6_9': df_6_9, '10_15': df_10_15, '16_19': df_16_19}
+    
+    for key, value in data.items():
+        df = calc_lottr('MF', key, value)
+        df_tmc = pd.merge(df_tmc, df, on='tmc_code', how='left')
+
+    return df_tmc
 
 
 def main():
@@ -98,11 +131,10 @@ def main():
     print('Script started at {0}'.format(startTime))
     pd.set_option('display.max_rows', None)
 
-    ###############################################################
-    #               UNCOMMENT FOR FULL DATASET                    #
+
     drive_path = 'H:/map21/perfMeasures/phed/data/original_data/'
-    quarters = ['2017Q0']
-    #quarters = ['2017Q0', '2017Q1', '2017Q2', '2017Q3', '2017Q4']
+    #quarters = ['2017Q0']
+    quarters = ['2017Q0', '2017Q1', '2017Q2', '2017Q3', '2017Q4']
 
     folder_end = '_TriCounty_Metro_15-min'
     file_end = '_NPMRDS (Trucks and passenger vehicles).csv'
@@ -119,6 +151,7 @@ def main():
                         os.path.dirname(__file__), drive_path + full_path))
         df = pd.concat([df, df_temp], sort=False)
 
+    df = df.dropna()
 
     # Filter by timestamps
     print("Filtering timestamps...".format(q))
@@ -143,7 +176,21 @@ def main():
                   right_on=df['tmc_code'])
     df = df.drop('key_0', axis=1)
 
-    """
+
+    # Apply calculation functions
+    print("Applying calculation functions...")
+    # df = AADT_splits(df)
+
+    # Separate weekend and weekday dataframes for processing
+    df_mf = df[df['measurement_tstamp'].dt.weekday.isin([0, 1, 2, 3, 4])]
+    df_sat_sun = df[df['measurement_tstamp'].dt.weekday.isin([5, 6])]
+    df_mf = agg_travel_times_mf(df_mf)
+    df_sat_sun = agg_travel_time_sat_sun(df_sat_sun)
+
+    # Combined weekend, weekday dataset
+    df = pd.merge(df_mf, df_sat_sun, on='tmc_code')
+    df = check_reliable(df)
+
     # Join TMC Metadata
     print("Join TMC Metadata...")
     df_meta = pd.read_csv(
@@ -156,37 +203,22 @@ def main():
 
     df = pd.merge(df, df_meta, left_on=df['tmc_code'],
                   right_on=df_meta['tmc'], how='inner')
-    # This is necessary in pandas > v.0.22.0 ####
+
+    # ###########This is necessary in pandas > v.0.22.0 ####
     df = df.drop('key_0', axis=1)
-    #############################################
+    ########################################################
 
-    # Join HERE data
-    df_here = pd.read_csv(
-        os.path.join(
-            os.path.dirname(__file__), wd +
-            'HERE_OR_Static_TriCounty_edit.csv'),
-        usecols=['TMC_HERE', 'SPEED_LIMIT'])
+    # Join Interstate values
+    df_interstate = pd.read_csv(
+        os.path.join(os.path.dirname(__file__), wd + 'interstate_tmc.csv'))
+    df = pd.merge(df, df_interstate, left_on='tmc_code', right_on='Tmc', 
+                  how='left')
 
-    df = pd.merge(df, df_here, left_on=df['tmc_code'],
-                  right_on=df_here['TMC_HERE'], how='left', validate='m:1')
-    # This is necessary in pandas > v.0.22.0 ####
-    df = df.drop('key_0', axis=1)
-    #############################################
-    """
+    df = AADT_splits(df)
+    df = calc_ttr(df)
+    print(calc_pct_reliability(df))
 
-    # Apply calculation functions
-    print("Applying calculation functions...")
-    # df = AADT_splits(df)
-
-    # Separate weekend and weekday dataframes for processing
-
-    df_mf = df[df['measurement_tstamp'].dt.weekday.isin([0, 1, 2, 3, 4])]
-    df_sat_sun = df[df['measurement_tstamp'].dt.weekday.isin([5, 6])]
-
-    df_mf = agg_travel_times_mf(df_mf)
-
-    df_mf.to_csv('lottr_out.csv')
-
+    df.to_csv('lottr_out.csv')
     endTime = dt.datetime.now()
     print("Script finished in {0}.".format(endTime - startTime))
 

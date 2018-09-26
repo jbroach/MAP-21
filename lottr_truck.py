@@ -1,13 +1,11 @@
 """
-Script to calculate Level of Travel Time Reliability (LOTTR) per FHWA 
-guidelines.
+Script to calculate Freight Reliability Metric per ODOT Guidance.
 
-Joins Metro peaking factor csv for calibrated hourly aadt volumes and HERE
-data, provided by ODOT for relevant speed limits on TMCs.
-
-Script by Kevin Saavedra, Metro, kevin.saavedra@oregonmetro.gov
+By Kevin Saavedra, Metro, kevin.saavedra@oregonmetro.gov
 
 NOTE: SCRIPT RELIES ON PANDAS v.0.23.0 OR GREATER!
+Usage:
+>>>python lottr_truck.py
 """
 
 import os
@@ -24,7 +22,7 @@ def calc_freight_reliability(df_rel):
     sum_weighted = df_int['weighted_ttr'].sum()
 
     ttr_index =  sum_weighted / df_int_sum
-    return ttr_index
+    return df_rel, ttr_index
 
 
 def calc_ttr(df_ttr):
@@ -43,9 +41,7 @@ def AADT_splits(df_spl):
     Args: df_spl, a pandas dataframe.
     Returns: df_spl, a pandas dataframe containing new columns:
         dir_aadt: directional aadt
-        aadt_auto: auto aadt
-        pct_auto, pct_bus, pct_truck : percentage mode splits of auto, bus and
-        trucks.
+        pct_truck : percentage mode splits of trucks.
     """
     df_spl['dir_aadt'] = (df_spl['aadt']/df_spl['faciltype']).round()
     df_spl['pct_truck'] = df_spl['aadt_combi'] / df_spl['dir_aadt']
@@ -81,11 +77,17 @@ def agg_travel_time_sat_sun(df_tt):
 
     df_6_19 = df_tt[df_tt['measurement_tstamp'].dt.hour.isin(
         [6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19])]
-   
-    df = calc_lottr(df_6_19)
-    df_tmc = pd.merge(df_tmc, df, on='tmc_code', how='left')
-
-    return df_tmc
+    df_20_6 = df_tt[df_tt['measurement_tstamp'].dt.hour.isin(
+        [20, 21, 22, 23, 0, 1, 2, 3, 4, 5, 6])]
+    
+    df_list = [df_6_19, df_20_6]
+    
+    df_ttr_all_times = pd.DataFrame()
+    for df in df_list:
+        df_temp = calc_lottr(df)
+        df_ttr_all_times = pd.concat([df_ttr_all_times, df_temp], sort=False)
+    df_ttr_all_times.to_csv('tmc_by_time_period_satsun.csv')
+    return df_ttr_all_times
 
 
 def agg_travel_times_mf(df_tt):
@@ -109,6 +111,7 @@ def agg_travel_times_mf(df_tt):
         df_temp = calc_lottr(df)
         df_ttr_all_times = pd.concat([df_ttr_all_times, df_temp], sort=False)
     
+    df_ttr_all_times.to_csv('tmc_by_time_period_mf.csv')
     return df_ttr_all_times
 
 
@@ -137,34 +140,26 @@ def main():
                     os.path.join(
                         os.path.dirname(__file__), drive_path + full_path))
         df = pd.concat([df, df_temp], sort=False)
-
     df = df.dropna()
 
     # Filter by timestamps
     print("Filtering timestamps...".format(q))
     df['measurement_tstamp'] = pd.to_datetime(df['measurement_tstamp'])
     df['hour'] = df['measurement_tstamp'].dt.hour
-
     wd = 'H:/map21/perfMeasures/phed/data/'
     
-
-    # Join/filter on relevant urban TMCs
-    print("Join/filter on urban TMCs...")
+    # Join/filter on relevant Metro TMCs
+    print("Join/filter on Metro TMCs...")
     df_urban = pd.read_csv(
-        os.path.join(os.path.dirname(__file__), wd + 'urban_tmc.csv'))
-
-    # This is necessary in pandas > v.0.22.0 ####
-    #df = df.drop('key_0', axis=1)
-    #############################################
+        os.path.join(os.path.dirname(__file__), wd + 'metro_tmc_092618.csv'))   
     
-    df = pd.merge(df_urban, df, how='inner', left_on=df_urban['Tmc'],
-                  right_on=df['tmc_code'])
+    df = pd.merge(df, df_urban, how='right', left_on=df['tmc_code'], 
+                  right_on=df_urban['Tmc'])
     df = df.drop('key_0', axis=1)
-
+    #print(df.shape, df['travel_time_seconds'].sum())
 
     # Apply calculation functions
     print("Applying calculation functions...")
-
 
     # Separate weekend and weekday dataframes for processing
     df_mf = df[df['measurement_tstamp'].dt.weekday.isin([0, 1, 2, 3, 4])]
@@ -172,7 +167,7 @@ def main():
     df_mf = agg_travel_times_mf(df_mf)
     df_sat_sun = agg_travel_time_sat_sun(df_sat_sun)
 
-    # Combined weekend, weekday dataset
+    # Combine weekend, weekday dataset
     df = pd.concat([df_mf, df_sat_sun], sort=False)
     df = get_max_ttr(df)
 
@@ -183,8 +178,8 @@ def main():
             os.path.dirname(__file__),
             wd +
             'TMC_Identification_NPMRDS (Trucks and passenger vehicles).csv'),
-        usecols=['tmc', 'miles', 'tmclinear', 'faciltype', 'aadt',
-                 'aadt_singl', 'aadt_combi'])
+        usecols=['tmc', 'miles', 'faciltype', 'aadt', 'aadt_singl', 
+                 'aadt_combi'])
 
     df = pd.merge(df, df_meta, left_on=df['tmc_code'],
                   right_on=df_meta['tmc'], how='inner')
@@ -195,13 +190,14 @@ def main():
 
     # Join Interstate values
     df_interstate = pd.read_csv(
-        os.path.join(os.path.dirname(__file__), wd + 'interstate_tmc.csv'))
+        os.path.join(os.path.dirname(__file__), wd + 'interstate_tmc_092618.csv'))
     df = pd.merge(df, df_interstate, left_on='tmc_code', right_on='Tmc', 
-                  how='left')
+                  how='inner')
 
     df = AADT_splits(df)
     df = calc_ttr(df)
-    print(calc_freight_reliability(df))
+    df, reliability_index = calc_freight_reliability(df)
+    print(reliability_index)
 
     df.to_csv('lottr_truck_out.csv')
     endTime = dt.datetime.now()

@@ -165,17 +165,20 @@ def main():
     df = df[df['measurement_tstamp'].dt.hour.isin(
         [6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19])]
 
-    # Join/filter on relevant urban TMCs
-    print("Join/filter on urban TMCs...")
+    # Join/filter on relevant Metro TMCs
+    print("Join/filter on Metro TMCs...")
     df_urban = pd.read_csv(
-        os.path.join(os.path.dirname(__file__), wd + 'urban_tmc.csv'))
+        os.path.join(os.path.dirname(__file__), wd + 'metro_tmc_092618.csv'))
 
     # This is necessary in pandas > v.0.22.0 ####
     #df = df.drop('key_0', axis=1)
     #############################################
     
-    df = pd.merge(df_urban, df, how='inner', left_on=df_urban['Tmc'],
-                  right_on=df['tmc_code'])
+    #df = pd.merge(df_urban, df, how='inner', left_on=df_urban['Tmc'],
+    #              right_on=df['tmc_code'])
+    
+    df = pd.merge(df, df_urban, how='right', left_on=df['tmc_code'], 
+                  right_on=df_urban['Tmc'])
     df = df.drop('key_0', axis=1)
 
 
@@ -212,7 +215,7 @@ def main():
 
     # Join Interstate values
     df_interstate = pd.read_csv(
-        os.path.join(os.path.dirname(__file__), wd + 'interstate_tmc.csv'))
+        os.path.join(os.path.dirname(__file__), wd + 'interstate_tmc_092618.csv'))
     df = pd.merge(df, df_interstate, left_on='tmc_code', right_on='Tmc', 
                   how='left')
 

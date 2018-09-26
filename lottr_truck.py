@@ -15,18 +15,29 @@ import datetime as dt
 
 
 def calc_freight_reliability(df_rel):
+    """
+    Calculates TTTR (Truck Travel Time Reliability), AKA freight reliability.
+    Args: df_rel, a pandas dataframe.
+    Returns: df_rel, a pandas dataframe with new columns 'weighted_ttr'
+             tttr_index, the full freight reliability index measure of the 
+             whole interstate system.   
+    """
     df_int = df_rel.loc[df_rel['interstate'] == 1]
+    # Total length of the interstate system
     df_int_sum = df_int['miles'].sum()
     
+    # Calculated weighted tttr for trucks
     df_int['weighted_ttr'] = df_int['miles'] * df_int['tttr']  
     sum_weighted = df_int['weighted_ttr'].sum()
-
-    ttr_index =  sum_weighted / df_int_sum
-    return df_rel, ttr_index
+    tttr_index =  sum_weighted / df_int_sum
+    
+    return df_rel, tttr_index
 
 
 def calc_ttr(df_ttr):
-    """Calculate travel time reliability for auto and bus passengers.
+    """Calculates travel time reliability.
+    Args: df_ttr, a pandas dataframe.
+    Returns: df_ttr, a pandas dataframe with new ttr column.
     """
     # Working vehicle occupancy assumptions:
     VOCt = 1
@@ -37,25 +48,37 @@ def calc_ttr(df_ttr):
 
 
 def AADT_splits(df_spl):
-    """Calculates AADT per vehicle type.
+    """Calculates AADT by truck vehicle type.
     Args: df_spl, a pandas dataframe.
     Returns: df_spl, a pandas dataframe containing new columns:
         dir_aadt: directional aadt
-        pct_truck : percentage mode splits of trucks.
+        pct_truck: percentage mode splits of trucks.
     """
     df_spl['dir_aadt'] = (df_spl['aadt']/df_spl['faciltype']).round()
     df_spl['pct_truck'] = df_spl['aadt_combi'] / df_spl['dir_aadt']
-
+    
     return df_spl
 
 
 def get_max_ttr(df_max):
+    """Returns maximum ttr calculated per TMC.
+    Args: df_max, a pandas dataframe.
+    Returns: df_max, a dataframe containing grouped TMCs with max tttr values. 
+    """
     ttr_operations = ({'tttr': 'max'})
     df_max = df_max.groupby('tmc_code', as_index=False).agg(ttr_operations)
+    
     return df_max
 
 
 def calc_lottr(df_lottr):
+    """Calculates LOTTR (Level of Travel Time Reliability) using FHWA metrics.
+    Args: df_lottr, a pandas dataframe.
+    Returns: df_lottr, a pandas dataframe with new columns:
+             95_pct_tt, 95th percentile calculation.
+             50_pct_tt, 50th percentile calculation.
+             tttr, completed truck travel time reliability calculation.
+    """
     df_lottr['95_pct_tt'] = df_lottr['travel_time_seconds']
     df_lottr['50_pct_tt'] = df_lottr['travel_time_seconds'] 
 
@@ -64,13 +87,16 @@ def calc_lottr(df_lottr):
     
     df_lottr = df_lottr.groupby('tmc_code', as_index=False).agg(tmc_operations)
     df_lottr['tttr'] = df_lottr['95_pct_tt'] / df_lottr['50_pct_tt']
-    #df_lottr = df_lottr.drop('travel_time_seconds', axis=1)
 
     return df_lottr
   
 
 def agg_travel_time_sat_sun(df_tt):
-    """Aggregates weekend values."""
+    """Aggregates weekend truck travel time reliability values.
+    Args: df_tt, a pandas dataframe.
+    Returns: df_ttr_all_times, a pandas dataframe with stacked truck travel 
+             time reliability numbers for easy group_by characteristics. 
+    """
     tmc_list = df_tt['tmc_code'].drop_duplicates().values.tolist()
     tmc_format = {'tmc_code': tmc_list}
     df_tmc = pd.DataFrame.from_dict(tmc_format)
@@ -86,21 +112,27 @@ def agg_travel_time_sat_sun(df_tt):
     for df in df_list:
         df_temp = calc_lottr(df)
         df_ttr_all_times = pd.concat([df_ttr_all_times, df_temp], sort=False)
-    df_ttr_all_times.to_csv('tmc_by_time_period_satsun.csv')
+    
     return df_ttr_all_times
 
 
 def agg_travel_times_mf(df_tt):
-    """Aggregates weekday values"""
+    """Aggregates weekday truck travel time reliability values.
+    Args: df_tt, a pandas dataframe.
+    Returns: df_ttr_all_times, a pandas dataframe with stacked truck travel 
+             time reliability numbers for easy group_by characteristics. 
+    """
     # creates df containing all tmcs and ttrs listed vertically
     tmc_list = df_tt['tmc_code'].drop_duplicates().values.tolist()
     tmc_format = {'tmc_code': tmc_list}
     df_tmc = pd.DataFrame.from_dict(tmc_format)
 
-    df_6_9 = df_tt[df_tt['measurement_tstamp'].dt.hour.isin([6, 7, 8, 9])]
-    df_10_15 = df_tt[df_tt['measurement_tstamp'].dt.hour.isin([10, 11, 12, 13, 
-                                                               14, 15])]
-    df_16_19 = df_tt[df_tt['measurement_tstamp'].dt.hour.isin([16, 17, 18, 19])]
+    df_6_9 = df_tt[df_tt['measurement_tstamp'].dt.hour.isin(
+        [6, 7, 8, 9])]
+    df_10_15 = df_tt[df_tt['measurement_tstamp'].dt.hour.isin(
+        [10, 11, 12, 13, 14, 15])]
+    df_16_19 = df_tt[df_tt['measurement_tstamp'].dt.hour.isin(
+        [16, 17, 18, 19])]
     df_20_6 = df_tt[df_tt['measurement_tstamp'].dt.hour.isin(
         [20, 21, 22, 23, 0, 1, 2, 3, 4, 5, 6])]
     
@@ -111,24 +143,20 @@ def agg_travel_times_mf(df_tt):
         df_temp = calc_lottr(df)
         df_ttr_all_times = pd.concat([df_ttr_all_times, df_temp], sort=False)
     
-    df_ttr_all_times.to_csv('tmc_by_time_period_mf.csv')
     return df_ttr_all_times
 
 
 def main():
-    """Main script to calculate PHED."""
+    """Main script to calculate TTTR."""
     startTime = dt.datetime.now()
     print('Script started at {0}'.format(startTime))
     pd.set_option('display.max_rows', None)
 
-
     drive_path = 'H:/map21/perfMeasures/phed/data/original_data/'
     #quarters = ['2017Q0']
     quarters = ['2017Q0', '2017Q1', '2017Q2', '2017Q3', '2017Q4']
-
     folder_end = '_TriCounty_Metro_15-min'
     file_end = '_NPMRDS (Trucks).csv'
-
     df = pd.DataFrame()  # Empty dataframe
 
     for q in quarters:

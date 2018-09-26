@@ -1,11 +1,8 @@
 """
 Script to calculate Level of Travel Time Reliability (LOTTR) per FHWA 
-guidelines.
+guidelines. Calculations for Auto/Bus traffic. 
 
-Joins Metro peaking factor csv for calibrated hourly aadt volumes and HERE
-data, provided by ODOT for relevant speed limits on TMCs.
-
-Script by Kevin Saavedra, Metro, kevin.saavedra@oregonmetro.gov
+By Kevin Saavedra, Metro, kevin.saavedra@oregonmetro.gov
 
 NOTE: SCRIPT RELIES ON PANDAS v.0.23.0 OR GREATER!
 """
@@ -17,6 +14,12 @@ import datetime as dt
 
 
 def calc_pct_reliability(df_pct):
+    """
+    Calculates percent reliability of interstate and non-interstate network.
+    Args: df_pct, a pandas dataframe. 
+    Returns: int_rel_pct, % interstate reliability.
+             non_int_rel_pct, % non interstate reliability. 
+    """
     # Auto, Bus interstate
     df_int = df_pct.loc[df_pct['interstate'] == 1]
     df_int_sum = df_int['ttr'].sum()
@@ -33,7 +36,12 @@ def calc_pct_reliability(df_pct):
 
 
 def calc_ttr(df_ttr):
-    """Calculate travel time reliability for auto and bus passengers.
+    """Calculate travel time reliability for auto and bus.
+    Args: df_ttr, a pandas dataframe.
+    Returns: df_ttr, a pandas dataframe with new columns:
+             VOLa, Yearly Auto volumes.
+             VOLb, Yearly Bus volumes.
+             ttr,  Travel Time Reliability.
     """
     # Working vehicle occupancy assumptions:
     VOCa = 1.4
@@ -54,8 +62,7 @@ def AADT_splits(df_spl):
     Returns: df_spl, a pandas dataframe containing new columns:
         dir_aadt: directional aadt
         aadt_auto: auto aadt
-        pct_auto, pct_bus, pct_truck : percentage mode splits of auto, bus and
-        trucks.
+        pct_auto, pct_bus, pct_truck : percentage mode splits of auto and bus.
     """
     df_spl['dir_aadt'] = (df_spl['aadt']/df_spl['faciltype']).round()
     df_spl['aadt_auto'] = df_spl['dir_aadt'] - \
@@ -66,6 +73,11 @@ def AADT_splits(df_spl):
 
 
 def check_reliable(df_rel):
+    """Check reliability of TMCs across time periods. 
+    Args: df_rel, a pandas dataframe.
+    Returns: df_rel, a pandas dataframe with new column:
+             reliable, with value 1 if all time periods are reliable.
+    """
     df_rel['reliable'] = np.where(
                                    (df_rel['MF_6_9'] < 1.5) 
                                    & (df_rel['MF_10_15'] < 1.5) 
@@ -76,6 +88,13 @@ def check_reliable(df_rel):
 
 
 def calc_lottr(days, time_period, df_lottr):
+    """Calculates LOTTR (Level of Travel Time Reliability) using FHWA metrics.
+    Args: df_lottr, a pandas dataframe.
+    Returns: df_lottr, a pandas dataframe with new columns:
+             80_pct_tt, 95th percentile calculation.
+             50_pct_tt, 50th percentile calculation.
+             tttr, completed truck travel time reliability calculation.
+    """
     df_lottr['80_pct_tt'] = df_lottr['travel_time_seconds']
     df_lottr['50_pct_tt'] = df_lottr['travel_time_seconds'] 
 
@@ -92,7 +111,11 @@ def calc_lottr(days, time_period, df_lottr):
 
 
 def agg_travel_time_sat_sun(df_tt):
-    """Aggregates weekend values."""
+    """Aggregates weekend truck travel time reliability values.
+    Args: df_tt, a pandas dataframe.
+    Returns: df_ttr_all_times, a pandas dataframe with stacked truck travel 
+             time reliability numbers for easy group_by characteristics. 
+    """
     # create 'clean' dataframe consisting of non-duplicated TMCs
     tmc_list = df_tt['tmc_code'].drop_duplicates().values.tolist()
     tmc_format = {'tmc_code': tmc_list}
@@ -108,7 +131,11 @@ def agg_travel_time_sat_sun(df_tt):
 
 
 def agg_travel_times_mf(df_tt):
-    """Aggregates weekday values"""
+    """Aggregates weekday truck travel time reliability values.
+    Args: df_tt, a pandas dataframe.
+    Returns: df_ttr_all_times, a pandas dataframe with stacked truck travel 
+             time reliability numbers for easy group_by characteristics. 
+    """
     # create 'clean' dataframe consisting of non-duplicated TMCs
     tmc_list = df_tt['tmc_code'].drop_duplicates().values.tolist()
     tmc_format = {'tmc_code': tmc_list}
@@ -128,7 +155,7 @@ def agg_travel_times_mf(df_tt):
 
 
 def main():
-    """Main script to calculate PHED."""
+    """Main script to calculate LOTTR."""
     startTime = dt.datetime.now()
     print('Script started at {0}'.format(startTime))
     pd.set_option('display.max_rows', None)

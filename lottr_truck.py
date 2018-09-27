@@ -91,32 +91,7 @@ def calc_lottr(df_lottr):
     return df_lottr
   
 
-def agg_travel_time_sat_sun(df_tt):
-    """Aggregates weekend truck travel time reliability values.
-    Args: df_tt, a pandas dataframe.
-    Returns: df_ttr_all_times, a pandas dataframe with stacked truck travel 
-             time reliability numbers for easy group_by characteristics. 
-    """
-    tmc_list = df_tt['tmc_code'].drop_duplicates().values.tolist()
-    tmc_format = {'tmc_code': tmc_list}
-    df_tmc = pd.DataFrame.from_dict(tmc_format)
-
-    df_6_19 = df_tt[df_tt['measurement_tstamp'].dt.hour.isin(
-        [6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19])]
-    df_20_6 = df_tt[df_tt['measurement_tstamp'].dt.hour.isin(
-        [20, 21, 22, 23, 0, 1, 2, 3, 4, 5, 6])]
-    
-    df_list = [df_6_19, df_20_6]
-    
-    df_ttr_all_times = pd.DataFrame()
-    for df in df_list:
-        df_temp = calc_lottr(df)
-        df_ttr_all_times = pd.concat([df_ttr_all_times, df_temp], sort=False)
-    
-    return df_ttr_all_times
-
-
-def agg_travel_times_mf(df_tt):
+def agg_travel_times(df_tt, days):
     """Aggregates weekday truck travel time reliability values.
     Args: df_tt, a pandas dataframe.
     Returns: df_ttr_all_times, a pandas dataframe with stacked truck travel 
@@ -127,17 +102,29 @@ def agg_travel_times_mf(df_tt):
     tmc_format = {'tmc_code': tmc_list}
     df_tmc = pd.DataFrame.from_dict(tmc_format)
 
-    df_6_9 = df_tt[df_tt['measurement_tstamp'].dt.hour.isin(
-        [6, 7, 8, 9])]
-    df_10_15 = df_tt[df_tt['measurement_tstamp'].dt.hour.isin(
-        [10, 11, 12, 13, 14, 15])]
-    df_16_19 = df_tt[df_tt['measurement_tstamp'].dt.hour.isin(
-        [16, 17, 18, 19])]
-    df_20_6 = df_tt[df_tt['measurement_tstamp'].dt.hour.isin(
-        [20, 21, 22, 23, 0, 1, 2, 3, 4, 5, 6])]
+    overnight = [list(range(20, 24)), list(range(0, 7))]
+    overnight = [hour for lst in overnight for hour in lst]
+
+    if days == 'MF':
+        df_6_9 = df_tt[df_tt['measurement_tstamp'].dt.hour.isin(
+            list(range(6, 10)))]
+        df_10_15 = df_tt[df_tt['measurement_tstamp'].dt.hour.isin(
+            list(range(10, 16)))]
+        df_16_19 = df_tt[df_tt['measurement_tstamp'].dt.hour.isin(
+            list(range(16, 20)))]
+        
+        df_20_6 = df_tt[df_tt['measurement_tstamp'].dt.hour.isin(overnight)]
     
-    df_list = [df_6_9,  df_10_15, df_16_19, df_20_6]
-    
+        df_list = [df_6_9,  df_10_15, df_16_19, df_20_6]
+
+    if days == 'SATSUN':
+        df_6_19 = df_tt[df_tt['measurement_tstamp'].dt.hour.isin(
+            list(range(6, 20)))]
+        
+        df_20_6 = df_tt[df_tt['measurement_tstamp'].dt.hour.isin(overnight)]
+
+        df_list = [df_6_19, df_20_6]
+
     df_ttr_all_times = pd.DataFrame()
     for df in df_list:
         df_temp = calc_lottr(df)
@@ -153,8 +140,8 @@ def main():
     pd.set_option('display.max_rows', None)
 
     drive_path = 'H:/map21/perfMeasures/phed/data/original_data/'
-    #quarters = ['2017Q0']
-    quarters = ['2017Q0', '2017Q1', '2017Q2', '2017Q3', '2017Q4']
+    quarters = ['2017Q0']
+    #quarters = ['2017Q0', '2017Q1', '2017Q2', '2017Q3', '2017Q4']
     folder_end = '_TriCounty_Metro_15-min'
     file_end = '_NPMRDS (Trucks).csv'
     df = pd.DataFrame()  # Empty dataframe
@@ -192,8 +179,8 @@ def main():
     # Separate weekend and weekday dataframes for processing
     df_mf = df[df['measurement_tstamp'].dt.weekday.isin([0, 1, 2, 3, 4])]
     df_sat_sun = df[df['measurement_tstamp'].dt.weekday.isin([5, 6])]
-    df_mf = agg_travel_times_mf(df_mf)
-    df_sat_sun = agg_travel_time_sat_sun(df_sat_sun)
+    df_mf = agg_travel_times(df_mf, 'MF')
+    df_sat_sun = agg_travel_times(df_sat_sun, 'SATSUN')
 
     # Combine weekend, weekday dataset
     df = pd.concat([df_mf, df_sat_sun], sort=False)

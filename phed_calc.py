@@ -6,7 +6,7 @@ data, provided by ODOT for relevant speed limits on TMCs.
 Script by Kevin Saavedra, Metro, kevin.saavedra@oregonmetro.gov
 Adapted from Excel tables created by Rich Arnold, P.E., ODOT
 
-NOTE: SCRIPT RELIES ON PANDAS v.0.23.0 OR GREATER!
+NOTE: SCRIPT RELIES ON PANDAS v.0.22.0
 """
 
 import os
@@ -15,14 +15,14 @@ import numpy as np
 import datetime as dt
 
 
-def per_capita_TED(sum_12_mo):
+def per_capita_TED(sum_11_mo):
     """Calculates final Peak Hour Excessive Delay number.
-    Args: sum_12_mo, the integer sum of all TED values.
+    Args: sum_11_mo, the integer sum of all TED values.
     Returns: A value for Peak Hour Excessive Delay per capita.
     """
-    print(sum_12_mo)
+    year_adjusted_TED = (sum_11_mo / 11) + sum_11_mo
     pop_PDX = 1577456
-    return sum_12_mo / pop_PDX
+    return year_adjusted_TED / pop_PDX
 
 
 def TED_summation(df_teds):
@@ -33,7 +33,7 @@ def TED_summation(df_teds):
     """
     # Working vehicle occupancy assumptions:
     VOCa = 1.4
-    VOCb = 12.6
+    VOCb = 10
     VOCt = 1
     df_teds['AVOc'] = df_teds['pct_auto'] * VOCa
     df_teds['AVOb'] = df_teds['pct_bus'] * VOCb
@@ -142,7 +142,7 @@ def main():
     ###############################################################
     #               UNCOMMENT FOR FULL DATASET                    #
     drive_path = 'H:/map21/perfMeasures/phed/data/original_data/'
-    quarters = ['2017Q0', '2017Q1', '2017Q2', '2017Q3', '2017Q4']
+    quarters = ['2017Q1', '2017Q2', '2017Q3', '2017Q4']
     folder_end = '_TriCounty_Metro_15-min'
     file_end = '_NPMRDS (Trucks and passenger vehicles).csv'
 
@@ -156,7 +156,7 @@ def main():
         df_temp = pd.read_csv(
                     os.path.join(
                         os.path.dirname(__file__), drive_path + full_path))
-        df = pd.concat([df, df_temp], sort=False)
+        df = pd.concat([df, df_temp])
 
     ###########################################################################
 
@@ -193,16 +193,10 @@ def main():
     df_urban = pd.read_csv(
         os.path.join(os.path.dirname(__file__), wd + 'urban_tmc.csv'))
 
-    # This is necessary in pandas > v.0.22.0 ####
-    df = df.drop('key_0', axis=1)
-    #############################################
-
-    df = pd.merge(df_urban, df, how='inner', left_on=df_urban['Tmc'],
-                  right_on=df['tmc_code'])
-    df = df.drop('key_0', axis=1)
+    df = pd.merge(df_urban, df, left_on=df_urban['Tmc'],
+                  right_on=df['tmc_code'], how='inner')
 
     # Join TMC Metadata
-    print("Join TMC Metadata...")
     df_meta = pd.read_csv(
         os.path.join(
             os.path.dirname(__file__),
@@ -213,9 +207,6 @@ def main():
 
     df = pd.merge(df, df_meta, left_on=df['tmc_code'],
                   right_on=df_meta['tmc'], how='inner')
-    # This is necessary in pandas > v.0.22.0 ####
-    df = df.drop('key_0', axis=1)
-    #############################################
 
     # Join HERE data
     df_here = pd.read_csv(
@@ -226,9 +217,6 @@ def main():
 
     df = pd.merge(df, df_here, left_on=df['tmc_code'],
                   right_on=df_here['TMC_HERE'], how='left', validate='m:1')
-    # This is necessary in pandas > v.0.22.0 ####
-    df = df.drop('key_0', axis=1)
-    #############################################
 
     # Apply calculation functions
     print("Applying calculation functions...")
@@ -244,10 +232,8 @@ def main():
     df.to_csv('phed_out.csv')
 
     result = round(per_capita_TED(df['TED'].sum()), 2)
-    print("==================================================================")
     print("Calulated {} peak hour excessive delay per capita."
           .format(str(result)))
-    print("==================================================================")
     endTime = dt.datetime.now()
     print("Script finished in {0}.".format(endTime - startTime))
 

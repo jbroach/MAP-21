@@ -15,14 +15,13 @@ import numpy as np
 import datetime as dt
 
 
-def per_capita_TED(sum_11_mo):
+def per_capita_TED(sum_12_mo):
     """Calculates final Peak Hour Excessive Delay number.
     Args: sum_11_mo, the integer sum of all TED values.
     Returns: A value for Peak Hour Excessive Delay per capita.
     """
-    year_adjusted_TED = (sum_11_mo / 11) + sum_11_mo
     pop_PDX = 1577456
-    return year_adjusted_TED / pop_PDX
+    return sum_12_mo / pop_PDX
 
 
 def TED_summation(df_teds):
@@ -33,7 +32,7 @@ def TED_summation(df_teds):
     """
     # Working vehicle occupancy assumptions:
     VOCa = 1.4
-    VOCb = 10
+    VOCb = 12.6
     VOCt = 1
     df_teds['AVOc'] = df_teds['pct_auto'] * VOCa
     df_teds['AVOb'] = df_teds['pct_bus'] * VOCb
@@ -77,7 +76,7 @@ def excessive_delay(df_ed):
     Returns: df_ed, a pandas dataframe containing new column ED with completed
     calculations."""
     df_ed['ED'] = df_ed['RSD'] / 3600  # check this value hundredths of an hour
-    df_ed['ED'] = df_ed['ED'].round(3)
+    df_ed['ED'] = df_ed['ED']
     df_ed['ED'] = np.where(df_ed['ED'] >= 0, df_ed['ED'], 0)
     return df_ed
 
@@ -97,7 +96,7 @@ def segment_delay(df_sd):
     """Calculates Excessive Delay Threshold Travel Time (EDTTT).
     Args: df_sd, a pandas dataframe.
     Returns: df_sd, a pandas dataframe with new column SD with completed
-    calculations.
+    calculations, representing delay in seconds.
     """
     df_sd['SD'] = (df_sd['miles'] / df_sd['TS']) * 3600
     return df_sd
@@ -112,12 +111,12 @@ def AADT_splits(df_spl):
         pct_auto, pct_bus, pct_truck : percentage mode splits of auto, bus and
         trucks.
     """
-    df_spl['dir_aadt'] = (df_spl['aadt']/df_spl['faciltype']).round()
+    df_spl['dir_aadt'] = (df_spl['AADT']/df_spl['FacilType'])
     df_spl['aadt_auto'] = df_spl['dir_aadt'] - \
-        (df_spl['aadt_singl'] + df_spl['aadt_combi'])
+        (df_spl['AADT_Singl'] - df_spl['AADT_Combi'])
     df_spl['pct_auto'] = df_spl['aadt_auto'] / df_spl['dir_aadt']
-    df_spl['pct_bus'] = df_spl['aadt_singl'] / df_spl['dir_aadt']
-    df_spl['pct_truck'] = df_spl['aadt_combi'] / df_spl['dir_aadt']
+    df_spl['pct_bus'] = df_spl['AADT_Singl'] / df_spl['dir_aadt']
+    df_spl['pct_truck'] = df_spl['AADT_Combi'] / df_spl['dir_aadt']
     return df_spl
 
 
@@ -139,38 +138,39 @@ def main():
     print('Script started at {0}'.format(startTime))
     pd.set_option('display.max_rows', None)
 
-    ###############################################################
-    #               UNCOMMENT FOR FULL DATASET                    #
-    drive_path = 'H:/map21/perfMeasures/phed/data/original_data/'
+
+    drive_path = 'H:/map21/perfMeasures/phed/data/ODOT_Jun18/'
     quarters = ['2017Q1', '2017Q2', '2017Q3', '2017Q4']
-    folder_end = '_TriCounty_Metro_15-min'
-    file_end = '_NPMRDS (Trucks and passenger vehicles).csv'
+    file_end = '_Metro_ALL.csv'
 
     df = pd.DataFrame()  # Empty dataframe
 
     for q in quarters:
-        filename = q + folder_end + file_end
-        path = q + folder_end
-        full_path = path + '/' + filename
-        print("Loading {0} data...".format(q))
+        filename = 'PHED_' + q + file_end
         df_temp = pd.read_csv(
                     os.path.join(
-                        os.path.dirname(__file__), drive_path + full_path))
-        df = pd.concat([df, df_temp])
+                        os.path.dirname(__file__), drive_path + filename),
+                            usecols=['tmc_code', 'measurement_tstamp', 'miles',
+                         'travel_time_seconds', 'IsPrimary', 'AADT', 
+                         'AADT_Singl', 'AADT_Combi', 'FacilType'])
+        df_temp = df_temp[df_temp['IsPrimary'] == 1]
+        # Filter by timestamps
+        print("Calculating timestamps for {0}...".format(q))
+        df_temp['measurement_tstamp'] = pd.to_datetime(
+            df_temp['measurement_tstamp'], format='%Y/%m/%d %I:%M:%S %p')
 
-    ###########################################################################
+        df_temp['hour'] = df_temp['measurement_tstamp'].dt.hour
+        print("Filtering peak times for {0}...".format(q))
+        # Capture weekdays only
+        df_temp = df_temp[df_temp['measurement_tstamp'].dt.weekday.isin([0, 1, 2, 3, 4])]
+        # Capture peak times only
+        df_temp = df_temp[df_temp['measurement_tstamp'].dt.hour.isin(
+                                                [6, 7, 8, 9, 15, 16, 17, 18])]
 
-    ###########################################################################
-    #              UNCOMMENT TO USE ONE-MONTH TEST DATSET                     #
-    # df = pd.read_csv(os.path.join(os.path.dirname(__file__),
-    # 'Feb2017_test/Feb2017_test.csv'))
-    ###########################################################################
+        df = pd.concat([df, df_temp])        
 
-    # Filter by timestamps
-    print("Filtering timestamps...".format(q))
-    df['measurement_tstamp'] = pd.to_datetime(df['measurement_tstamp'])
-    df['hour'] = df['measurement_tstamp'].dt.hour
 
+    print("df contains {0} rows.".format(df.shape[0]))
     wd = 'H:/map21/perfMeasures/phed/data/'
     # Join peakingFactor data
     df_peak = pd.read_csv(
@@ -183,19 +183,15 @@ def main():
         df, df_peak, left_on=df['hour'],
         right_on=df_peak['pk_hour'], how='left')
 
-    # Capture weekdays only
-    df = df[df['measurement_tstamp'].dt.weekday.isin([0, 1, 2, 3, 4])]
-    df = df[df['measurement_tstamp'].dt.hour.isin(
-        [6, 7, 8, 9, 10, 15, 16, 17, 18, 19])]
-
+    
+    """
     # Join/filter on relevant urban TMCs
-    print("Join/filter on urban TMCs...")
     df_urban = pd.read_csv(
         os.path.join(os.path.dirname(__file__), wd + 'urban_tmc.csv'))
 
     df = pd.merge(df_urban, df, left_on=df_urban['Tmc'],
                   right_on=df['tmc_code'], how='inner')
-
+    
     # Join TMC Metadata
     df_meta = pd.read_csv(
         os.path.join(
@@ -208,18 +204,29 @@ def main():
     df = pd.merge(df, df_meta, left_on=df['tmc_code'],
                   right_on=df_meta['tmc'], how='inner')
 
+    """
+
     # Join HERE data
     df_here = pd.read_csv(
         os.path.join(
             os.path.dirname(__file__), wd +
-            'HERE_OR_Static_TriCounty_edit.csv'),
+            'HERE_OR_Static_TriCounty_orig.csv'),
         usecols=['TMC_HERE', 'SPEED_LIMIT'])
 
     df = pd.merge(df, df_here, left_on=df['tmc_code'],
-                  right_on=df_here['TMC_HERE'], how='left', validate='m:1')
+                  right_on=df_here['TMC_HERE'], how='left')
+    print("df contains {0} rows after HERE merge.".format(df.shape[0]))
+
+    #Add'l filter for ODOT's TMC list
+    df_ODOT = pd.read_csv(os.path.join(os.path.dirname(__file__),
+                        wd + 'PHED_2017Q1-4_Metro_SumPHED_byTMC_rev.csv'), 
+                        usecols=['tmc_code'])
+    tmc_ODOT = df_ODOT['tmc_code'].tolist()
+
+    df = df[df['tmc_code'].isin(tmc_ODOT)]
+
 
     # Apply calculation functions
-    print("Applying calculation functions...")
     df = threshold_speed(df)
     df = AADT_splits(df)
     df = segment_delay(df)
@@ -229,11 +236,12 @@ def main():
     df = total_excessive_delay(df)
     df = TED_summation(df)
     df = df[['tmc_code', 'TED']]
-    df.to_csv('phed_out.csv')
+    df.to_csv('phed_out_jun2018.csv')
 
     result = round(per_capita_TED(df['TED'].sum()), 2)
     print("Calulated {} peak hour excessive delay per capita."
           .format(str(result)))
+    
     endTime = dt.datetime.now()
     print("Script finished in {0}.".format(endTime - startTime))
 

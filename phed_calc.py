@@ -139,6 +139,7 @@ def main():
     print('Script started at {0}'.format(startTime))
     pd.set_option('display.max_rows', None)
 
+    
     ###############################################################
     #               UNCOMMENT FOR FULL DATASET                    #
     drive_path = 'H:/map21/perfMeasures/phed/data/original_data/'
@@ -159,11 +160,13 @@ def main():
         df = pd.concat([df, df_temp], sort=False)
 
     ###########################################################################
-
+   
     ###########################################################################
-    #              UNCOMMENT TO USE ONE-MONTH TEST DATSET                     #
-    # df = pd.read_csv(os.path.join(os.path.dirname(__file__),
-    # 'Feb2017_test/Feb2017_test.csv'))
+    #              UNCOMMENT TO USE SINGLE-CSV DATASET                        #
+    #drive_path = 'H:/map21/perfMeasures/phed/data/original_data/2018Q1-Q3_TriCounty_Metro_15-min'
+    #df = pd.read_csv(os.path.join(os.path.dirname(__file__), drive_path,
+    #                 '2018Q1-Q3_TriCounty_Metro_15-min.csv'))
+    #q = 'ALL'
     ###########################################################################
 
     # Filter by timestamps

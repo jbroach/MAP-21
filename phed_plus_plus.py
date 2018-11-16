@@ -16,6 +16,7 @@ class Phed:
 
     def load_metro_data(self):
         """Loads INRIX, here, data"""
+        """
         drive_path = 'H:/map21/perfMeasures/phed/data/original_data/'
         quarters = ['2017Q0', '2017Q1', '2017Q2', '2017Q3', '2017Q4']
         #quarters = ['2017Q0']
@@ -31,9 +32,11 @@ class Phed:
                         os.path.join(
                             os.path.dirname(__file__), drive_path + full_path))
             self.df = pd.concat([self.df, df_temp], sort=False)
+        """
+        self.df = pd.read_hdf('master_NPMRDS.h5')
 
         # Filter by timestamps
-        print("Filtering timestamps...".format(q))
+        print("Filtering timestamps...")
         self.df['measurement_tstamp'] = pd.to_datetime(
             self.df['measurement_tstamp'])
         self.df['hour'] = self.df['measurement_tstamp'].dt.hour

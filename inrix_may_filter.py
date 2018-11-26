@@ -52,12 +52,25 @@ def main():
     tmc_format = {'tmc_code': tmc_list}
     df_tmc = pd.DataFrame.from_dict(tmc_format)
 
+    # Add segment length from metadata
+    print("Join TMC Metadata...")
+    wd = 'H:/map21/perfMeasures/phed/data/'
+    df_meta = pd.read_csv(
+        os.path.join(
+            os.path.dirname(__file__),
+            wd +
+            'TMC_Identification_NPMRDS (Trucks and passenger vehicles).csv'),
+        usecols=['tmc', 'miles'])
+
+    df_tmc = pd.merge(df_tmc, df_meta, left_on=df_tmc['tmc_code'],
+                      right_on=df_meta['tmc'], how='inner')
+
     hours = list(range(0, 24))
     for hour in hours:
         df_time = tt_by_hour(df, hour)
         df_tmc = pd.merge(df_tmc, df_time, on='tmc_code', how='left')
 
-    df_tmc.to_csv('may_2017.csv', index=False)
+    df_tmc.to_csv('may_2017_INRIX.csv', index=False)
 
 if __name__ == '__main__':
     main()

@@ -14,7 +14,7 @@ import pandas as pd
 def tt_by_hour(df_tt, hour):
     """Process hourly travel time averages."""
     df_tt = df_tt[df_tt['measurement_tstamp'].dt.hour.isin([hour])]
-    tmc_operations = ({'travel_time_seconds': 'mean'})
+    tmc_operations = ({'travel_time_seconds': 'min'})
     df_tt = df_tt.groupby('tmc_code', as_index=False).agg(tmc_operations)
     df_avg_tt = df_tt.rename(
         columns={'travel_time_seconds': 'hour_{}_tt_seconds'.format(hour)})

@@ -61,8 +61,9 @@ def main():
             'TMC_Identification_NPMRDS (Trucks and passenger vehicles).csv'),
         usecols=['tmc', 'miles'])
 
-    df_tmc = pd.merge(df_tmc, df_meta, left_on=df_tmc['tmc_code'],
-                      right_on=df_meta['tmc'], how='inner')
+    df_tmc = pd.merge(df_tmc, df_meta, left_on='tmc_code',
+                      right_on='tmc', how='inner')
+    df_tmc = df_tmc.drop(columns=['tmc'])
 
     hours = list(range(0, 24))
     for hour in hours:

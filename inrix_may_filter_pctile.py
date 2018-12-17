@@ -18,11 +18,11 @@ def tt_by_hour(df_tt, hour):
     """Process hourly travel time averages."""
     df_tt = df_tt[df_tt['measurement_tstamp'].dt.hour.isin([hour])]
     tmc_operations = ({'travel_time_seconds': 'mean',
-                       'mean_5th_pctile': lambda x: np.percentile(x, 5),
-                       'mean_95th_pctile': lambda x: np.percentile(x, 95)})
+                       'hour_{0}_5th_pct'.format(hour).format(hour): lambda x: np.percentile(x, 5),
+                       'hour_{0}_95th_pct'.format(hour).format(hour): lambda x: np.percentile(x, 95)})
     df_tt = df_tt.groupby('tmc_code', as_index=False).agg(tmc_operations)
     df_avg_tt = df_tt.rename(
-        columns={'travel_time_seconds': 'hour_{}_tt_seconds'.format(hour)})
+        columns={'travel_time_seconds': 'hour_{}_mean_tt_seconds'.format(hour)})
     return df_avg_tt
 
 
@@ -38,9 +38,6 @@ def main():
 
     print("Filtering timestamps...")
     df['measurement_tstamp'] = pd.to_datetime(df['measurement_tstamp'])
-
-    # Filter for May only.
-    # df = df[df['measurement_tstamp'].dt.month.isin([5])]
 
     # Filter for Tuesday (excludes days following Memorial Day)
     df = df[df['measurement_tstamp'].dt.day.isin(
@@ -67,8 +64,8 @@ def main():
 
     hours = list(range(0, 24))
     for hour in hours:
-        df['mean_95th_pctile'] = df['travel_time_seconds']
-        df['mean_5th_pctile'] = df['travel_time_seconds']
+        df['hour_{0}_95th_pct'.format(hour)] = df['travel_time_seconds']
+        df['hour_{0}_5th_pct'.format(hour)] = df['travel_time_seconds']
         df_time = tt_by_hour(df, hour)
         df_tmc = pd.merge(df_tmc, df_time, on='tmc_code', how='left')
 

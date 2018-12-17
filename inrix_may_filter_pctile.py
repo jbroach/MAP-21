@@ -1,20 +1,25 @@
 """
-inrix_may_filter.py
+inrix_may_filter_pctile.py
 
 One-time use script to calculate average travel times for non-Memorial Day
 Tu, W, Thu in May.
+
+Utilizes unaveraged data from RITIS site.
 
 by Kevin Saavedra, kevin.saavedra@oregonmetro.gov
 """
 
 import os
 import pandas as pd
+import numpy as np
 
 
 def tt_by_hour(df_tt, hour):
     """Process hourly travel time averages."""
     df_tt = df_tt[df_tt['measurement_tstamp'].dt.hour.isin([hour])]
-    tmc_operations = ({'travel_time_seconds': 'min'})
+    tmc_operations = ({'travel_time_seconds': 'mean',
+                       'mean_5th_pctile': lambda x: np.percentile(x, 5),
+                       'mean_95th_pctile': lambda x: np.percentile(x, 95)})
     df_tt = df_tt.groupby('tmc_code', as_index=False).agg(tmc_operations)
     df_avg_tt = df_tt.rename(
         columns={'travel_time_seconds': 'hour_{}_tt_seconds'.format(hour)})
@@ -22,25 +27,20 @@ def tt_by_hour(df_tt, hour):
 
 
 def main():
-    drive_path = 'H:/map21/perfMeasures/phed/data/original_data/'
-    quarters = ['2017Q2']
-    folder_end = '_TriCounty_Metro_15-min'
-    file_end = '_NPMRDS (Trucks and passenger vehicles).csv'
+    drive_path = 'H:/map21/perfMeasures/phed/data/may_2017_no_averaging/'
+    filename = 'may_2017_no_averaging.csv'
 
-    for q in quarters:
-        filename = q + folder_end + file_end
-        path = q + folder_end
-        full_path = path + '/' + filename
-        print("Loading {0} data...".format(q))
-        df = pd.read_csv(
-                os.path.join(
-                    os.path.dirname(__file__), drive_path + full_path))
+    full_path = drive_path + filename
+    print("Loading data...")
+    df = pd.read_csv(
+            os.path.join(
+                os.path.dirname(__file__), full_path))
 
-    print("Filtering timestamps...".format(q))
+    print("Filtering timestamps...")
     df['measurement_tstamp'] = pd.to_datetime(df['measurement_tstamp'])
 
     # Filter for May only.
-    df = df[df['measurement_tstamp'].dt.month.isin([5])]
+    # df = df[df['measurement_tstamp'].dt.month.isin([5])]
 
     # Filter for Tuesday (excludes days following Memorial Day)
     df = df[df['measurement_tstamp'].dt.day.isin(
@@ -67,10 +67,12 @@ def main():
 
     hours = list(range(0, 24))
     for hour in hours:
+        df['mean_95th_pctile'] = df['travel_time_seconds']
+        df['mean_5th_pctile'] = df['travel_time_seconds']
         df_time = tt_by_hour(df, hour)
         df_tmc = pd.merge(df_tmc, df_time, on='tmc_code', how='left')
 
-    df_tmc.to_csv('may_2017_INRIX.csv', index=False)
+    df_tmc.to_csv('may_2017_INRIX_pctile.csv', index=False)
 
 
 if __name__ == '__main__':

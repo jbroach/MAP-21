@@ -22,7 +22,7 @@ def tt_by_hour(df_tt, hour):
 
 
 def main():
-    drive_path = 'H:/map21/perfMeasures/phed/data/original_data/'
+    drive_path = '/home/remote/KS_projects/test_dev/MAP-21/data/'
     quarters = ['2017Q2']
     folder_end = '_TriCounty_Metro_15-min'
     file_end = '_NPMRDS (Trucks and passenger vehicles).csv'
@@ -34,19 +34,25 @@ def main():
         print("Loading {0} data...".format(q))
         df = pd.read_csv(
                 os.path.join(
-                    os.path.dirname(__file__), drive_path + full_path))
+                    os.path.dirname(__file__), drive_path + full_path),
+                    chunksize=10000)
+        """
+        print("Filtering timestamps...".format(q))
+        df['measurement_tstamp'] = pd.to_datetime(df['measurement_tstamp'])
 
-    print("Filtering timestamps...".format(q))
-    df['measurement_tstamp'] = pd.to_datetime(df['measurement_tstamp'])
+        # Filter for May only.
+        df = df[df['measurement_tstamp'].dt.month.isin([5])]
 
-    # Filter for May only.
-    df = df[df['measurement_tstamp'].dt.month.isin([5])]
-
-    # Filter for Tuesday (excludes days following Memorial Day)
-    df = df[df['measurement_tstamp'].dt.day.isin(
-        [2, 3, 4, 9, 10, 11, 16, 17, 18, 23, 24, 25])]
-    df = df.dropna()
-
+        # Filter for Tuesday (excludes days following Memorial Day)
+        df = df[df['measurement_tstamp'].dt.day.isin(
+            [2, 3, 4, 9, 10, 11, 16, 17, 18, 23, 24, 25])]
+        df = df.dropna()
+        """
+        pieces = [x.groupby('tmc_code')['travel_time_seconds'].agg(['sum', 'count']) for x in df]
+        agg = pd.concat(pieces).groupby(level=0).sum()
+        print(agg['sum']/agg['count'])
+    
+    """
     tmc_list = df['tmc_code'].drop_duplicates().values.tolist()
     tmc_format = {'tmc_code': tmc_list}
     df_tmc = pd.DataFrame.from_dict(tmc_format)
@@ -65,13 +71,14 @@ def main():
                       right_on='tmc', how='inner')
     df_tmc = df_tmc.drop(columns=['tmc'])
 
+    
     hours = list(range(0, 24))
     for hour in hours:
         df_time = tt_by_hour(df, hour)
         df_tmc = pd.merge(df_tmc, df_time, on='tmc_code', how='left')
 
     df_tmc.to_csv('may_2017_INRIX.csv', index=False)
-
+    """
 
 if __name__ == '__main__':
     main()

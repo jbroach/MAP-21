@@ -1,8 +1,11 @@
 """
-inrix_may_filter.py
+inrix_may_filter_chunk.py
 
 One-time use script to calculate average travel times for non-Memorial Day
 Tu, W, Thu in May.
+
+This script makes use of chunking in order to get around the memory limitations
+imposed by the GCP free tier.
 
 by Kevin Saavedra, kevin.saavedra@oregonmetro.gov
 """
@@ -32,27 +35,59 @@ def main():
         path = q + folder_end
         full_path = path + '/' + filename
         print("Loading {0} data...".format(q))
-        df = pd.read_csv(
-                os.path.join(
-                    os.path.dirname(__file__), drive_path + full_path),
-                    chunksize=10000)
+    
+        # Load as chunks
+        df = pd.read_csv(os.path.join(
+            os.path.dirname(__file__), drive_path + full_path),
+                usecols=['tmc_code', 'measurement_tstamp', 
+                         'travel_time_seconds'],
+                parse_dates=[1],
+                chunksize=10000)
+
+        #pieces = [x.apply(pd.to_datetime(df['measurement_tstamp'])) for x in df]
+        #print(pieces)
         """
+        # List comprehension
+        list_chunks = [chunks[i:i+n] for i in range(0, chunks.shape[0],n)]
+        print(list_chunks[0])  
+        
+         
         print("Filtering timestamps...".format(q))
+        df = pd.concat([
         df['measurement_tstamp'] = pd.to_datetime(df['measurement_tstamp'])
-
+        """
         # Filter for May only.
-        df = df[df['measurement_tstamp'].dt.month.isin([5])]
-
+        filter = [x[x['measurement_tstamp'].dt.month.isin([5])] for x in df]
+        filter_d = [x[x['measurement_tstamp'].dt.day.isin(
+            [2, 3, 4, 9, 10, 11, 16, 17, 18, 23, 24, 25])] for x in filter]
+        
+        df = pd.concat(filter_d)
+        #df = df[df['measurement_tstamp'].dt.month.isin([5])]
+        
+        print(df)
+        check = df['measurement_tstamp'].dt.day.isin([31])
+        print(check.unique())
+        
+        """
         # Filter for Tuesday (excludes days following Memorial Day)
         df = df[df['measurement_tstamp'].dt.day.isin(
             [2, 3, 4, 9, 10, 11, 16, 17, 18, 23, 24, 25])]
         df = df.dropna()
         """
-        pieces = [x.groupby('tmc_code')['travel_time_seconds'].agg(['sum', 'count']) for x in df]
-        agg = pd.concat(pieces).groupby(level=0).sum()
-        print(agg['sum']/agg['count'])
+
+        ### Working aggregation
+        #pieces = [x.groupby('tmc_code')['travel_time_seconds'].agg(
+        #    ['sum', 'count']) for x in df]
+        #agg = pd.concat(pieces).groupby(level=0).sum()
+        #print(agg['sum']/agg['count'])
+        ##########
+
+        """   
+        hours = list(range(0, 24))
+        for hour in hours:
+            df_time = tt_by_hour(df, hour)
+            df_tmc = pd.merge(df_tmc, df_time, on='tmc_code', how='left')
     
-    """
     tmc_list = df['tmc_code'].drop_duplicates().values.tolist()
     tmc_format = {'tmc_code': tmc_list}
     df_tmc = pd.DataFrame.from_dict(tmc_format)

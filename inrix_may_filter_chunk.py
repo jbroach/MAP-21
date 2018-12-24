@@ -44,36 +44,25 @@ def main():
                 parse_dates=[1],
                 chunksize=10000)
 
-        #pieces = [x.apply(pd.to_datetime(df['measurement_tstamp'])) for x in df]
-        #print(pieces)
-        """
+        #pieces = [x.apply(pd.to_datetime(df['measurement_tstamp'])) 
+        #    for x in df]
         # List comprehension
-        list_chunks = [chunks[i:i+n] for i in range(0, chunks.shape[0],n)]
-        print(list_chunks[0])  
+        # list_chunks = [chunks[i:i+n] for i in range(0, chunks.shape[0],n)]
+        # print(list_chunks[0])  
         
          
         print("Filtering timestamps...".format(q))
-        df = pd.concat([
-        df['measurement_tstamp'] = pd.to_datetime(df['measurement_tstamp'])
-        """
         # Filter for May only.
         filter = [x[x['measurement_tstamp'].dt.month.isin([5])] for x in df]
         filter_d = [x[x['measurement_tstamp'].dt.day.isin(
             [2, 3, 4, 9, 10, 11, 16, 17, 18, 23, 24, 25])] for x in filter]
         
-        df = pd.concat(filter_d)
-        #df = df[df['measurement_tstamp'].dt.month.isin([5])]
+    df = pd.concat(filter_d)
         
-        print(df)
-        check = df['measurement_tstamp'].dt.day.isin([31])
-        print(check.unique())
+        # check = df['measurement_tstamp'].dt.day.isin([31])
+        # print(check.unique())
         
-        """
-        # Filter for Tuesday (excludes days following Memorial Day)
-        df = df[df['measurement_tstamp'].dt.day.isin(
-            [2, 3, 4, 9, 10, 11, 16, 17, 18, 23, 24, 25])]
-        df = df.dropna()
-        """
+    df = df.dropna()
 
         ### Working aggregation
         #pieces = [x.groupby('tmc_code')['travel_time_seconds'].agg(
@@ -82,16 +71,12 @@ def main():
         #print(agg['sum']/agg['count'])
         ##########
 
-        """   
-        hours = list(range(0, 24))
-        for hour in hours:
-            df_time = tt_by_hour(df, hour)
-            df_tmc = pd.merge(df_tmc, df_time, on='tmc_code', how='left')
-    
+   
     tmc_list = df['tmc_code'].drop_duplicates().values.tolist()
     tmc_format = {'tmc_code': tmc_list}
     df_tmc = pd.DataFrame.from_dict(tmc_format)
 
+    """
     # Add segment length from metadata
     print("Join TMC Metadata...")
     wd = 'H:/map21/perfMeasures/phed/data/'
@@ -105,7 +90,7 @@ def main():
     df_tmc = pd.merge(df_tmc, df_meta, left_on='tmc_code',
                       right_on='tmc', how='inner')
     df_tmc = df_tmc.drop(columns=['tmc'])
-
+    """
     
     hours = list(range(0, 24))
     for hour in hours:
@@ -113,7 +98,7 @@ def main():
         df_tmc = pd.merge(df_tmc, df_time, on='tmc_code', how='left')
 
     df_tmc.to_csv('may_2017_INRIX.csv', index=False)
-    """
+
 
 if __name__ == '__main__':
     main()

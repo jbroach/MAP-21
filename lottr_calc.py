@@ -35,9 +35,10 @@ def calc_pct_reliability(df_pct):
     return int_rel_pct, non_int_rel_pct
 
 
-def calc_ttr(df_ttr):
+def calc_ttr(df_ttr, nhs_pct_switch=True):
     """Calculate travel time reliability for auto and bus.
     Args: df_ttr, a pandas dataframe.
+          nhs_pct_switch, if True weight segment lengths by nhs_pct
     Returns: df_ttr, a pandas dataframe with new columns:
              VOLa, Yearly Auto volumes.
              VOLb, Yearly Bus volumes.
@@ -51,7 +52,11 @@ def calc_ttr(df_ttr):
     df_ttr['VOLb'] = df_ttr['pct_bus'] * df_ttr['dir_aadt'] * 365
 
     # weight miles by nhs_pct
-    nhs_prop = df_ttr['nhs_pct'] / 100.0
+    if nhs_pct_switch:
+        nhs_prop = df_ttr['nhs_pct'] / 100.0
+    else:
+        print('NHS pct adjustment is OFF')
+        nhs_prop = [1.0 for i in range(len(df_ttr))]
     print('mean(nhs_prop) = {}'.format(np.mean(nhs_prop)))
     #nhs_prop = 1.0
     df_ttr['ttr'] = (df_ttr['miles'] * nhs_prop * df_ttr['VOLa'] * VOCa
@@ -163,19 +168,21 @@ def main():
     pd.set_option('display.max_rows', None)
 
     drive_path = 'H:/map21/2020/data/'
-    quarters = ['']
+    quarters = ['']  # for use with annual file; originally used quarterly
     #quarters = ['2017Q0', '2017Q1', '2017Q2', '2017Q3', '2017Q4']
 
-    folder_end = 'pdx-3co-mtip-2019-all-15min'
+    folder_end = 'pdx-3co-mtip-2017-all-15min'
     file_end = '.csv'
-
+    # TODO move interstate identification to TMC file parsing
+    local_tmcs = 'networks/metro-2017'  # csv file with set of analysis TMCs
+    nhs_pct_switch = True  # whether to weight segments by nhs_pct
     df = pd.DataFrame()  # Empty dataframe
 
     for q in quarters:
         filename = q + folder_end + file_end
         path = q + folder_end
         full_path = path + '/' + filename
-        print("Loading {0} data...".format(full_path))
+        print("Loading data from {0}...".format(filename))
         df_temp = pd.read_csv(
                     os.path.join(
                         os.path.dirname(__file__), drive_path + full_path))
@@ -190,16 +197,15 @@ def main():
     df.loc[:, 'measurement_tstamp'] = pd.to_datetime(df['measurement_tstamp'])
     df.loc[:, 'hour'] = df['measurement_tstamp'].dt.hour
 
-    wd = 'H:/map21/2020/data/networks/'
+    # wd = 'H:/map21/2020/data/networks/'
 
     df = df[df['measurement_tstamp'].dt.hour.isin(
         [6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19])]
 
     # Join/filter on relevant Metro TMCs
-    print("Join/filter on Metro TMCs...")
-    df_urban = pd.read_csv(
-        os.path.join(os.path.dirname(__file__), wd + 'metro-2019.csv'),
-        usecols=('Tmc', 'interstate'))
+    print("Join/filter on Metro TMCs from {}...".format(local_tmcs))
+    df_urban = pd.read_csv(drive_path + local_tmcs + '.csv',
+                           usecols=('Tmc', 'interstate'))
 
     # This is necessary in pandas > v.0.22.0 ####
     #df = df.drop('key_0', axis=1)
@@ -245,6 +251,7 @@ def main():
                   right_on=df_meta['tmc'], how='inner')
 
     # ###########This is necessary in pandas > v.0.22.0 ####
+    # TODO test which if any of these are still necessary
     df = df.drop('key_0', axis=1)
     ########################################################
 
@@ -256,7 +263,7 @@ def main():
     #               how='left')
 
     df = AADT_splits(df)
-    df = calc_ttr(df)
+    df = calc_ttr(df, nhs_pct_switch=nhs_pct_switch)
     print(calc_pct_reliability(df))
 
     #df.to_csv('lottr_out_2019_mtip2020_nhspct.csv')

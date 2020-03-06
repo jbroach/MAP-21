@@ -50,8 +50,12 @@ def calc_ttr(df_ttr):
     df_ttr['VOLa'] = df_ttr['pct_auto'] * df_ttr['dir_aadt'] * 365
     df_ttr['VOLb'] = df_ttr['pct_bus'] * df_ttr['dir_aadt'] * 365
 
-    df_ttr['ttr'] = (df_ttr['miles'] * df_ttr['VOLa'] * VOCa
-                     + df_ttr['miles'] * df_ttr['VOLb'] *VOCb)
+    # weight miles by nhs_pct
+    nhs_prop = df_ttr['nhs_pct'] / 100.0
+    print('mean(nhs_prop) = {}'.format(np.mean(nhs_prop)))
+    #nhs_prop = 1.0
+    df_ttr['ttr'] = (df_ttr['miles'] * nhs_prop * df_ttr['VOLa'] * VOCa
+                     + df_ttr['miles'] * nhs_prop * df_ttr['VOLb'] * VOCb)
     return df_ttr
 
 
@@ -235,7 +239,7 @@ def main():
             drive_path + folder_end + '/' +
             'TMC_Identification.csv'),
         usecols=['tmc', 'miles', 'tmclinear', 'faciltype', 'aadt',
-                 'aadt_singl', 'aadt_combi'])
+                 'aadt_singl', 'aadt_combi', 'nhs_pct'])
 
     df = pd.merge(df, df_meta, left_on=df['tmc_code'],
                   right_on=df_meta['tmc'], how='inner')
@@ -255,7 +259,7 @@ def main():
     df = calc_ttr(df)
     print(calc_pct_reliability(df))
 
-    df.to_csv('lottr_out_2019_mtip2020.csv')
+    #df.to_csv('lottr_out_2019_mtip2020_nhspct.csv')
     endTime = dt.datetime.now()
     print("Script finished in {0}.".format(endTime - startTime))
 

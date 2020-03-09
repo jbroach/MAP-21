@@ -103,8 +103,8 @@ def calc_lottr(days, time_period, df_lottr):
              50_pct_tt, 50th percentile calculation.
              tttr, completed truck travel time reliability calculation.
     """
-    df_lottr.loc[:, '80_pct_tt'] = df_lottr['travel_time_seconds']
-    df_lottr.loc[:, '50_pct_tt'] = df_lottr['travel_time_seconds']
+    df_lottr['80_pct_tt'] = df_lottr['travel_time_seconds']
+    df_lottr['50_pct_tt'] = df_lottr['travel_time_seconds']
 
     tmc_operations = ({'80_pct_tt': lambda x: np.percentile(x, 80),
                        '50_pct_tt': lambda x: np.percentile(x, 50)})
@@ -130,7 +130,7 @@ def agg_travel_time_sat_sun(df_tt):
     df_tmc = pd.DataFrame.from_dict(tmc_format)
 
     df_6_19 = df_tt[df_tt['measurement_tstamp'].dt.hour.isin(
-        [6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19])]
+        [6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19])].copy()  # copy avoids slicing ambiguity
 
     df = calc_lottr('SATSUN', '6_19', df_6_19)
     df_tmc = pd.merge(df_tmc, df, on='tmc_code', how='left')
@@ -149,10 +149,10 @@ def agg_travel_times_mf(df_tt):
     tmc_format = {'tmc_code': tmc_list}
     df_tmc = pd.DataFrame.from_dict(tmc_format)
 
-    df_6_9 = df_tt[df_tt['measurement_tstamp'].dt.hour.isin([6, 7, 8, 9])]
+    df_6_9 = df_tt[df_tt['measurement_tstamp'].dt.hour.isin([6, 7, 8, 9])].copy()  # copy avoids slicing ambiguity
     df_10_15 = df_tt[df_tt['measurement_tstamp'].dt.hour.isin([10, 11, 12, 13,
-                                                               14, 15])]
-    df_16_19 = df_tt[df_tt['measurement_tstamp'].dt.hour.isin([16, 17, 18, 19])]
+                                                               14, 15])].copy()
+    df_16_19 = df_tt[df_tt['measurement_tstamp'].dt.hour.isin([16, 17, 18, 19])].copy()
     data = {'6_9': df_6_9, '10_15': df_10_15, '16_19': df_16_19}
 
     for key, value in data.items():
@@ -166,16 +166,19 @@ def main():
     startTime = dt.datetime.now()
     print('Script started at {0}'.format(startTime))
     pd.set_option('display.max_rows', None)
+    # pd.set_option('mode.chained_assignment', 'raise')
 
     drive_path = 'H:/map21/2020/data/'
     quarters = ['']  # for use with annual file; originally used quarterly
     #quarters = ['2017Q0', '2017Q1', '2017Q2', '2017Q3', '2017Q4']
 
-    folder_end = 'pdx-3co-mtip-2017-all-15min'
+    folder_end = 'pdx-3co-mtip-2019-all-15min'
     file_end = '.csv'
     # TODO move interstate identification to TMC file parsing
-    local_tmcs = 'networks/metro-2017'  # csv file with set of analysis TMCs
+    local_tmcs = 'networks/metro-2019'  # csv file with set of analysis TMCs
     nhs_pct_switch = True  # whether to weight segments by nhs_pct
+    outfile = 'lottr_out_2019_mtip2020.csv'
+
     df = pd.DataFrame()  # Empty dataframe
 
     for q in quarters:
@@ -187,16 +190,19 @@ def main():
                     os.path.join(
                         os.path.dirname(__file__), drive_path + full_path))
         df = pd.concat([df, df_temp], sort=False)
-
+    data_start = min(df['measurement_tstamp'])
+    data_stop = max(df['measurement_tstamp'])
+    print('{} to {}'.format(data_start, data_stop))
     # df = df.dropna()
     if sum(pd.isna(df['travel_time_seconds'])) != 0:
         df = df.dropna(subset=['travel_time_seconds'])
 
     # Filter by timestamps
     print("Filtering timestamps...".format(q))
-    df.loc[:, 'measurement_tstamp'] = pd.to_datetime(df['measurement_tstamp'])
-    df.loc[:, 'hour'] = df['measurement_tstamp'].dt.hour
-
+    # df.loc[:, 'measurement_tstamp'] = pd.to_datetime(df['measurement_tstamp'])
+    # df.loc[:, 'hour'] = df['measurement_tstamp'].dt.hour
+    df['measurement_tstamp'] = pd.to_datetime(df['measurement_tstamp'])
+    df['hour'] = df['measurement_tstamp'].dt.hour
     # wd = 'H:/map21/2020/data/networks/'
 
     df = df[df['measurement_tstamp'].dt.hour.isin(
@@ -245,8 +251,18 @@ def main():
             drive_path + folder_end + '/' +
             'TMC_Identification.csv'),
         usecols=['tmc', 'miles', 'tmclinear', 'faciltype', 'aadt',
-                 'aadt_singl', 'aadt_combi', 'nhs_pct'])
-
+                 'aadt_singl', 'aadt_combi', 'nhs_pct', 'active_end_date'])
+    # Downloaded file sometimes has duplicate records because of an apparent
+    #   midnight overlap bug in the massive data downloader.
+    #   Previously, this was handled in aggregate functions
+    #   but those don't necessarily keep correct date range for data
+    print(len(df_meta))
+    df_meta = df_meta[df_meta['active_end_date'].str[:19] > data_start]
+    print(len(df_meta))
+    # Occasionally, TMCs duplicated (e.g. 2018 114+04459)
+    # duplicate missing HPMS vars needed in calcs
+    df_meta = df_meta.dropna(subset=['nhs_pct'])
+    print(len(df_meta))
     df = pd.merge(df, df_meta, left_on=df['tmc_code'],
                   right_on=df_meta['tmc'], how='inner')
 
@@ -265,8 +281,13 @@ def main():
     df = AADT_splits(df)
     df = calc_ttr(df, nhs_pct_switch=nhs_pct_switch)
     print(calc_pct_reliability(df))
-
-    #df.to_csv('lottr_out_2019_mtip2020_nhspct.csv')
+    int_miles = sum(df['miles'] * df['nhs_pct']/100.0 * df['interstate'])
+    non_int_miles = sum(df['miles'] * df['nhs_pct']/100.0 *
+                        (1 - df['interstate']))
+    print('Interstate NHS miles = {}'.format(int_miles))
+    print('Non-Interstate NHS miles = {}'.format(non_int_miles))
+    if outfile:
+        df.to_csv(outfile)
     endTime = dt.datetime.now()
     print("Script finished in {0}.".format(endTime - startTime))
 

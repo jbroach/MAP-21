@@ -14,35 +14,53 @@ import numpy as np
 import datetime as dt
 
 
-def calc_freight_reliability(df_rel):
+def calc_freight_reliability(df_rel, nhs_pct_switch=True):
     """
     Calculates TTTR (Truck Travel Time Reliability), AKA freight reliability.
     Args: df_rel, a pandas dataframe.
+          nhs_pct_switch, if True weight segment lengths by nhs_pct.
     Returns: df_rel, a pandas dataframe with new columns 'weighted_ttr'
              tttr_index, the full freight reliability index measure of the
              whole interstate system.
     """
-    df_int = df_rel.loc[df_rel['interstate'] == 1]
+    # Only report out for interstate segments
+    df_int = df_rel.loc[df_rel['interstate'] == 1].copy()
+    if nhs_pct_switch:
+        nhs_prop = df_int['nhs_pct'] / 100.0
+    else:
+        print('NHS pct adjustment is OFF')
+        nhs_prop = [1.0 for i in range(len(df_int))]
+    print('mean(nhs_prop_int) = {}'.format(np.mean(nhs_prop)))
     # Total length of the interstate system
-    df_int_sum = df_int['miles'].sum()
-
+    df_int_sum = sum(df_int['miles'] * nhs_prop)
+    print('df_int_sum = {}'.format(df_int_sum))
     # Calculated weighted tttr for trucks
-    df_int.loc[:, 'weighted_ttr'] = df_int['miles'] * df_int['tttr']
+    df_int.loc[:, 'weighted_ttr'] = df_int['miles'] * nhs_prop * df_int['tttr']
     sum_weighted = df_int['weighted_ttr'].sum()
     tttr_index =  sum_weighted / df_int_sum
 
-    return df_rel, tttr_index
+    return df_int, tttr_index
 
 
-def calc_ttr(df_ttr):
+def calc_ttr(df_ttr, nhs_pct_switch=True):
     """Calculates travel time reliability.
     Args: df_ttr, a pandas dataframe.
+          nhs_pct_switch, if True weight segment lengths by nhs_pct.
     Returns: df_ttr, a pandas dataframe with new ttr column.
     """
     # Working vehicle occupancy assumptions:
     VOCt = 1
     df_ttr['VOLt'] = df_ttr['pct_truck'] * df_ttr['dir_aadt'] * 365
-    df_ttr['ttr'] = df_ttr['miles'] * df_ttr['VOLt'] * VOCt
+
+    # weight miles by nhs_pct
+    if nhs_pct_switch:
+        nhs_prop = df_ttr['nhs_pct'] / 100.0
+    else:
+        print('NHS pct adjustment is OFF')
+        nhs_prop = [1.0 for i in range(len(df_ttr))]
+    print('mean(nhs_prop) = {}'.format(np.mean(nhs_prop)))
+
+    df_ttr['ttr'] = df_ttr['miles'] * nhs_prop * df_ttr['VOLt'] * VOCt
 
     return df_ttr
 
@@ -79,9 +97,10 @@ def calc_lottr(df_lottr):
              50_pct_tt, 50th percentile calculation.
              tttr, completed truck travel time reliability calculation.
     """
-    df_lottr.loc[:, '95_pct_tt'] = df_lottr['travel_time_seconds']
-    df_lottr.loc[:, '50_pct_tt'] = df_lottr['travel_time_seconds']
-
+    # df_lottr.loc[:, '95_pct_tt'] = df_lottr['travel_time_seconds']
+    # df_lottr.loc[:, '50_pct_tt'] = df_lottr['travel_time_seconds']
+    df_lottr['95_pct_tt'] = df_lottr['travel_time_seconds']
+    df_lottr['50_pct_tt'] = df_lottr['travel_time_seconds']
     tmc_operations = ({'95_pct_tt': lambda x: np.percentile(x, 95),
                        '50_pct_tt': lambda x: np.percentile(x, 50)})
 
@@ -107,21 +126,23 @@ def agg_travel_times(df_tt, days):
 
     if days == 'MF':
         df_6_9 = df_tt[df_tt['measurement_tstamp'].dt.hour.isin(
-            list(range(6, 10)))]
+            list(range(6, 10)))].copy()  # copy avoids slicing ambiguity
         df_10_15 = df_tt[df_tt['measurement_tstamp'].dt.hour.isin(
-            list(range(10, 16)))]
+            list(range(10, 16)))].copy()
         df_16_19 = df_tt[df_tt['measurement_tstamp'].dt.hour.isin(
-            list(range(16, 20)))]
+            list(range(16, 20)))].copy()
 
-        df_20_6 = df_tt[df_tt['measurement_tstamp'].dt.hour.isin(overnight)]
+        df_20_6 = df_tt[df_tt['measurement_tstamp']
+                        .dt.hour.isin(overnight)].copy()
 
         df_list = [df_6_9,  df_10_15, df_16_19, df_20_6]
 
     if days == 'SATSUN':
         df_6_19 = df_tt[df_tt['measurement_tstamp'].dt.hour.isin(
-            list(range(6, 20)))]
+            list(range(6, 20)))].copy() # copy avoids slicing ambiguity
 
-        df_20_6 = df_tt[df_tt['measurement_tstamp'].dt.hour.isin(overnight)]
+        df_20_6 = df_tt[df_tt['measurement_tstamp']
+                        .dt.hour.isin(overnight)].copy()
 
         df_list = [df_6_19, df_20_6]
 
@@ -138,17 +159,24 @@ def main():
     startTime = dt.datetime.now()
     print('Script started at {0}'.format(startTime))
     pd.set_option('display.max_rows', None)
+    # pd.set_option('mode.chained_assignment', 'raise')
 
     drive_path = 'H:/map21/2020/data/'
     quarters = ['']
     # quarters = ['2017Q0', '2017Q1', '2017Q2', '2017Q3', '2017Q4']
-    folder_end = 'pdx-3co-mtip-2019-trucks-15min'
+    folder_end_trucks = 'pdx-3co-mtip-2019-trucks-15min'
+    folder_end_all = 'pdx-3co-mtip-2019-all-15min'
     file_end = '.csv'
+    # TODO move interstate identification to TMC file parsing
+    local_tmcs = 'networks/metro-2019'  # csv file with set of analysis TMCs
+    nhs_pct_switch = True  # whether to weight segments by nhs_pct
+    outfile = 'lottr_truck_out_2019_mtip2020.csv'
+
     df = pd.DataFrame()  # Empty dataframe
 
     for q in quarters:
-        filename = q + folder_end + file_end
-        path = q + folder_end
+        filename = q + folder_end_trucks + file_end
+        path = q + folder_end_trucks
         full_path = path + '/' + filename
         print("Loading {0} data (Truck)...".format(full_path))
         df_temp = pd.read_csv(
@@ -158,13 +186,17 @@ def main():
                                        'travel_time_seconds'))
         df = pd.concat([df, df_temp], sort=False)
 
+    data_start = min(df['measurement_tstamp'])
+    data_stop = max(df['measurement_tstamp'])
+    print('{} to {}'.format(data_start, data_stop))
+
     # Load all vehicle files to use where Truck travel times missing or zero
-    folder_end = 'pdx-3co-mtip-2019-all-15min'
+    # folder_end = 'pdx-3co-mtip-2019-all-15min'
     df2 = pd.DataFrame()  # Empty dataframe
 
     for q in quarters:
-        filename = q + folder_end + file_end
-        path = q + folder_end
+        filename = q + folder_end_all + file_end
+        path = q + folder_end_all
         full_path = path + '/' + filename
         print("Loading {0} data (All Vehicle)...".format(full_path))
         df_temp = pd.read_csv(
@@ -180,6 +212,10 @@ def main():
     if sum(pd.isna(df['travel_time_seconds'])) != 0:
         df2 = df2.dropna(subset=['travel_time_seconds'])
 
+    data_start = min(df2['measurement_tstamp'])
+    data_stop = max(df2['measurement_tstamp'])
+    print('{} to {}'.format(data_start, data_stop))
+
     print('Merging Truck & All Vehicle data...')
     # len1 = len(df)
     df = pd.merge(df, df2, how='right', on=('tmc_code', 'measurement_tstamp'),
@@ -187,16 +223,15 @@ def main():
 
     # Filter by timestamps
     print("Filtering timestamps...".format(q))
-    df.loc[:, 'measurement_tstamp'] = pd.to_datetime(df['measurement_tstamp'])
-    df.loc[:, 'hour'] = df['measurement_tstamp'].dt.hour
-    wd = 'H:/map21/2020/data/networks/'
+    df['measurement_tstamp'] = pd.to_datetime(df['measurement_tstamp'])
+    df['hour'] = df['measurement_tstamp'].dt.hour
+    # wd = 'H:/map21/2020/data/networks/'
 
     # Join/filter on relevant Metro TMCs
     print("Join/filter on Metro TMCs...")
-    # df_urban = pd.read_csv(
-    #     os.path.join(os.path.dirname(__file__), wd + 'metro_tmc_092618.csv'))
     df_urban = pd.read_csv(
-        os.path.join(os.path.dirname(__file__), wd + 'metro-2019.csv'),
+        os.path.join(os.path.dirname(__file__), drive_path + local_tmcs
+                     + '.csv'),
         usecols=('Tmc', 'interstate'))
     df = pd.merge(df, df_urban, how='inner', left_on=df['tmc_code'],
                   right_on=df_urban['Tmc'])
@@ -228,11 +263,22 @@ def main():
     df_meta = pd.read_csv(
         os.path.join(
             os.path.dirname(__file__),
-            drive_path + folder_end + '/' +
-            'TMC_Identification.csv'),
+            drive_path + folder_end_all + '/'
+            + 'TMC_Identification.csv'),
         usecols=['tmc', 'miles', 'faciltype', 'aadt', 'aadt_singl',
-                 'aadt_combi'])
+                 'aadt_combi', 'nhs_pct', 'active_end_date'])
 
+    # Downloaded file sometimes has duplicate records because of an apparent
+    #   midnight overlap bug in the massive data downloader.
+    #   Previously, this was handled in aggregate functions
+    #   but those don't necessarily keep correct date range for data
+    print(len(df_meta))
+    df_meta = df_meta[df_meta['active_end_date'].str[:19] > data_start]
+    print(len(df_meta))
+
+    # Occasionally, TMCs duplicated (e.g. 2018 114+04459)
+    # duplicate missing HPMS vars needed in calcs
+    df_meta = df_meta.dropna(subset=['nhs_pct'])
     df = pd.merge(df, df_meta, left_on=df['tmc_code'],
                   right_on=df_meta['tmc'], how='inner')
 
@@ -248,11 +294,13 @@ def main():
     #               how='left')
 
     df = AADT_splits(df)
-    df = calc_ttr(df)
-    df, reliability_index = calc_freight_reliability(df)
+    # df = calc_ttr(df, nhs_pct_switch=nhs_pct_switch)  # not needed for freight
+    df, reliability_index = calc_freight_reliability(df,
+      nhs_pct_switch=nhs_pct_switch)
     print(reliability_index)
 
-    df.to_csv('lottr_truck_out_2018_mtip2020.csv')
+    if outfile:
+        df.to_csv(outfile)
     endTime = dt.datetime.now()
     print("Script finished in {0}.".format(endTime - startTime))
 
